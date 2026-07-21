@@ -1,0 +1,2356 @@
+import streamlit as st
+import pandas as pd
+import requests
+import html
+import json
+from datetime import datetime
+import random
+from streamlit_autorefresh import st_autorefresh
+
+st.set_page_config(
+    page_title="WinterStorm2030 | High North Governance Wargame",
+    page_icon="🧊",
+    layout="wide",
+    initial_sidebar_state="expanded",
+)
+
+st.markdown('''
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Rajdhani:wght@500;600;700&display=swap');
+:root{
+  --navy:#04111c;--navy2:#082033;--navy3:#0b2e43;--ice:#dffbff;--cyan:#7ae7f4;--cyan2:#bbfbff;
+  --teal:#4fd0de;--amber:#ffd279;--red:#ff808d;--green:#8ce8b1;--muted:#9fb8c7;--steel:#6e8ea1;--violet:#c7a6f7;--neonblue:#3fa9ff;
+  --line:rgba(122,231,244,.18);--line2:rgba(122,231,244,.45);--panel:rgba(6,24,36,.86);--panel2:rgba(10,34,50,.78);
+}
+html,body,[class*="css"]{font-family:'Inter',sans-serif}
+.stApp{
+  color:var(--ice);
+  background:
+    radial-gradient(circle at 12% 18%, rgba(80,170,210,.18), transparent 24%),
+    radial-gradient(circle at 85% 12%, rgba(96,232,255,.15), transparent 23%),
+    radial-gradient(circle at 72% 66%, rgba(42,94,148,.16), transparent 30%),
+    linear-gradient(145deg,#01070d 0%, #03131f 42%, #082234 78%, #0d2f46 100%);
+}
+.stApp:before{
+  content:"";position:fixed;inset:0;pointer-events:none;
+  background-image:
+    linear-gradient(rgba(160,232,244,.028) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(160,232,244,.028) 1px, transparent 1px);
+  background-size:44px 44px;
+}
+.stApp:after{
+  content:"";position:fixed;left:0;right:0;bottom:0;height:180px;pointer-events:none;
+  background:linear-gradient(180deg,transparent,rgba(196,241,255,.05) 46%,rgba(196,241,255,.08));
+  clip-path:polygon(0 100%,12% 76%,20% 88%,33% 68%,45% 84%,58% 70%,70% 86%,82% 65%,92% 80%,100% 61%,100% 100%);
+}
+.block-container{max-width:1560px;padding-top:1.15rem;padding-bottom:3rem;position:relative}
+header[data-testid="stHeader"]{background:transparent}#MainMenu,footer{visibility:hidden}
+section[data-testid="stSidebar"]{background:linear-gradient(180deg,rgba(5,18,29,.96),rgba(8,24,38,.96));border-right:1px solid var(--line)}
+section[data-testid="stSidebar"] .block-container{padding-top:1rem}
+h1,h2,h3,h4{font-family:'Rajdhani',sans-serif;color:var(--ice);letter-spacing:.01em}
+
+.ws-hero,.ws-panel,.ws-callout-panel,.ws-brief,.ws-domain-card,.ws-mini-card,.ws-mode-note{
+  position:relative;overflow:hidden;border:1px solid var(--line);border-radius:20px;background:linear-gradient(150deg,rgba(8,29,44,.94),rgba(5,20,32,.88));
+  box-shadow:0 20px 48px rgba(0,0,0,.30), inset 0 1px 0 rgba(255,255,255,.04);
+}
+.ws-hero{padding:1.35rem 1.5rem 1.3rem;border-color:var(--line2);margin:.15rem 0 1rem}
+.ws-hero:before,.ws-panel:before,.ws-brief:before,.ws-domain-card:before{
+  content:"";position:absolute;inset:0;pointer-events:none;
+  background:linear-gradient(120deg,rgba(255,255,255,.035),transparent 26%,transparent 70%,rgba(122,231,244,.04));
+}
+.ws-hero:after{
+  content:"";position:absolute;width:360px;height:360px;right:-90px;top:-190px;border-radius:50%;
+  border:1px solid rgba(122,231,244,.22);box-shadow:0 0 95px rgba(122,231,244,.10), inset 0 0 60px rgba(122,231,244,.05);
+}
+.ws-kicker{color:var(--cyan);font-size:.74rem;font-weight:800;letter-spacing:.2em;text-transform:uppercase}
+.ws-title{font-family:'Rajdhani',sans-serif;font-size:clamp(2.2rem,4vw,3.85rem);line-height:.94;font-weight:700;margin:.24rem 0 .42rem}
+.ws-subtitle{color:var(--muted);font-size:.97rem;max-width:960px;line-height:1.45}
+.ws-badges{display:flex;gap:.48rem;flex-wrap:wrap;margin-top:.85rem}.ws-badge{padding:.34rem .68rem;border:1px solid rgba(122,231,244,.24);border-radius:999px;background:rgba(122,231,244,.085);color:#e2feff;font-size:.72rem;font-weight:700;letter-spacing:.05em}
+.ws-section-label{margin:.35rem 0 .72rem;color:var(--cyan);font-size:.75rem;font-weight:800;letter-spacing:.18em;text-transform:uppercase}
+.ws-status{display:inline-flex;align-items:center;gap:.42rem;flex-wrap:wrap;font-size:.74rem;color:var(--muted)}
+.ws-dot{width:8px;height:8px;border-radius:50%;display:inline-block;background:var(--green);box-shadow:0 0 12px var(--green)}
+.ws-risk-low{color:var(--green)}.ws-risk-med{color:var(--amber)}.ws-risk-high{color:var(--red)}
+.ws-callout-panel{padding:1rem 1.05rem;border-left:3px solid var(--cyan);background:linear-gradient(145deg,rgba(6,28,42,.82),rgba(8,31,47,.66));color:var(--muted)}
+.ws-panel{padding:1rem 1.05rem}
+.ws-brief{padding:1.15rem 1.1rem}
+.ws-brief-title{font-family:'Rajdhani',sans-serif;font-size:1.35rem;font-weight:700;margin-bottom:.35rem}
+.ws-brief-grid{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:.65rem;margin-top:.75rem}
+.ws-mini-card{padding:.78rem .82rem;border-radius:14px;background:linear-gradient(145deg,rgba(10,38,56,.92),rgba(8,26,39,.76));border:1px solid rgba(122,231,244,.14);border-left:3px solid var(--cyan)}
+.ws-brief-grid .ws-mini-card:nth-child(1){border-left-color:var(--cyan)}
+.ws-brief-grid .ws-mini-card:nth-child(2){border-left-color:var(--amber)}
+.ws-brief-grid .ws-mini-card:nth-child(3){border-left-color:var(--green)}
+.ws-brief-grid .ws-mini-card:nth-child(4){border-left-color:var(--neonblue)}
+.ws-brief-grid .ws-mini-card:nth-child(5){border-left-color:var(--violet)}
+.ws-brief-grid .ws-mini-card:nth-child(6){border-left-color:var(--red)}
+.ws-mini-card small{display:block;color:var(--muted);font-size:.68rem;text-transform:uppercase;letter-spacing:.12em;margin-bottom:.2rem}
+.ws-mini-card strong{display:block;color:var(--cyan2);font-size:1.05rem;font-weight:700;line-height:1.2}
+.ws-feature-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:.7rem;margin:.72rem 0 .2rem}
+.ws-feature{padding:.84rem .82rem;border:1px solid var(--line);border-left:3px solid var(--cyan);border-radius:14px;background:linear-gradient(145deg,rgba(11,38,53,.70),rgba(8,28,42,.52));color:var(--muted);font-size:.82rem}.ws-feature strong{color:var(--ice);display:block;margin-bottom:.24rem;font-weight:700}
+.ws-feature-grid .ws-feature:nth-child(1){border-left-color:var(--cyan)}
+.ws-feature-grid .ws-feature:nth-child(2){border-left-color:var(--amber)}
+.ws-feature-grid .ws-feature:nth-child(3){border-left-color:var(--green)}
+.ws-feature-grid .ws-feature:nth-child(4){border-left-color:var(--neonblue)}
+.ws-domain-grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:.72rem;margin:.8rem 0 1rem}
+.ws-domain-card{padding:.82rem .86rem;border-radius:16px;background:linear-gradient(145deg,rgba(9,34,49,.88),rgba(5,21,34,.88))}
+.ws-domain-card .name{display:block;font-size:.78rem;color:var(--muted);min-height:2.35rem;line-height:1.3}
+.ws-domain-card .gap{display:block;font-family:'Rajdhani',sans-serif;font-size:2rem;font-weight:700;color:var(--cyan2);line-height:1.05;margin:.2rem 0}
+.ws-domain-card .tag{display:inline-block;padding:.24rem .48rem;border-radius:999px;font-size:.66rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase}
+.ws-domain-card.low .tag{background:rgba(140,232,177,.14);color:var(--green);border:1px solid rgba(140,232,177,.25)}
+.ws-domain-card.med .tag{background:rgba(255,210,121,.14);color:var(--amber);border:1px solid rgba(255,210,121,.25)}
+.ws-domain-card.high .tag{background:rgba(255,128,141,.14);color:var(--red);border:1px solid rgba(255,128,141,.25)}
+.ws-chip-row{display:flex;gap:.5rem;flex-wrap:wrap;margin-bottom:.7rem}.ws-chip{padding:.32rem .56rem;border-radius:999px;border:1px solid var(--line);background:rgba(122,231,244,.07);color:var(--ice);font-size:.72rem;font-weight:700}
+.ws-mode-note{padding:.85rem .95rem;border-radius:14px;background:linear-gradient(145deg,rgba(8,28,40,.76),rgba(5,19,29,.70));margin-bottom:.85rem}
+
+/* Native Streamlit components */
+div[data-testid="stMetric"]{background:linear-gradient(145deg,rgba(11,37,54,.94),rgba(6,24,37,.88));border:1px solid var(--line);border-left:3px solid var(--cyan);border-radius:18px;padding:1rem 1.05rem;min-height:120px;box-shadow:0 12px 26px rgba(0,0,0,.2),inset 0 1px 0 rgba(255,255,255,.03)}
+div[data-testid="stHorizontalBlock"] > div[data-testid="column"]:nth-of-type(1) div[data-testid="stMetric"]{border-left-color:var(--cyan)}
+div[data-testid="stHorizontalBlock"] > div[data-testid="column"]:nth-of-type(2) div[data-testid="stMetric"]{border-left-color:var(--amber)}
+div[data-testid="stHorizontalBlock"] > div[data-testid="column"]:nth-of-type(3) div[data-testid="stMetric"]{border-left-color:var(--green)}
+div[data-testid="stHorizontalBlock"] > div[data-testid="column"]:nth-of-type(4) div[data-testid="stMetric"]{border-left-color:var(--neonblue)}
+div[data-testid="stMetricLabel"]{color:var(--muted);font-size:.72rem;text-transform:uppercase;letter-spacing:.11em;font-weight:800}
+div[data-testid="stMetricValue"]{color:var(--cyan2);font-family:'Rajdhani',sans-serif;font-weight:700;font-size:2rem}
+.stButton>button,.stFormSubmitButton>button{min-height:2.75rem;background:linear-gradient(135deg,#82f0fb,#40bfd0)!important;color:#031d2a!important;font-weight:800!important;border:1px solid rgba(220,255,255,.74)!important;border-radius:11px!important;padding:.68rem 1rem!important;box-shadow:0 9px 22px rgba(12,174,165,.20),inset 0 1px 0 rgba(255,255,255,.45)!important;transition:.16s ease!important}
+.stButton>button:hover,.stFormSubmitButton>button:hover{transform:translateY(-1px);filter:brightness(1.06);box-shadow:0 14px 30px rgba(12,174,165,.27)!important}
+.stButton>button:active,.stFormSubmitButton>button:active{transform:translateY(1px)}
+div[data-baseweb="input"]>div,div[data-baseweb="textarea"]>div,div[data-baseweb="select"]>div{background:rgba(5,23,35,.90)!important;border-color:rgba(109,199,216,.28)!important;border-radius:11px!important}input,textarea{color:var(--ice)!important}.stTextInput label,.stTextArea label,.stSelectbox label,.stRadio label,.stToggle label{color:var(--muted)!important;font-weight:700!important}
+.stTabs [data-baseweb="tab-list"]{gap:.34rem;padding:.38rem;border:1px solid var(--line);border-radius:14px;background:rgba(4,18,29,.76);overflow-x:auto}.stTabs [data-baseweb="tab"]{height:2.8rem;border-radius:10px;padding:0 .95rem;color:var(--muted);font-weight:700}.stTabs [aria-selected="true"]{background:rgba(122,231,244,.12)!important;color:var(--cyan2)!important}.stTabs [data-baseweb="tab-highlight"]{background-color:var(--cyan)}
+div[data-testid="stSegmentedControl"]{gap:.5rem;flex-wrap:wrap}
+div[data-testid="stSegmentedControl"] label{border:1px solid var(--line)!important;border-radius:12px!important;background:rgba(9,33,49,.55)!important;padding:.65rem .9rem!important;min-height:2.6rem;transition:box-shadow .15s ease,border-color .15s ease,background .15s ease!important}
+div[data-testid="stSegmentedControl"] label:hover{border-color:var(--cyan)!important}
+div[data-testid="stSegmentedControl"] label[aria-checked="true"],div[data-testid="stSegmentedControl"] label[data-checked="true"]{border-color:var(--cyan)!important;background:rgba(122,231,244,.16)!important;box-shadow:0 0 0 1px var(--cyan),0 0 18px rgba(122,231,244,.55)!important}
+div[data-testid="stSegmentedControl"] label[aria-checked="true"] p,div[data-testid="stSegmentedControl"] label[data-checked="true"] p{color:var(--cyan2)!important;font-weight:700!important}
+.st-key-vector_tile_grid .stButton>button{min-height:6.5rem!important;white-space:pre-line!important;line-height:1.5!important;font-family:'Inter',sans-serif!important;text-align:center!important}
+.st-key-vector_tile_grid .stButton>button[kind="secondary"],.st-key-vector_tile_grid .stButton>button[data-testid="stBaseButton-secondary"]{background:rgba(9,33,49,.55)!important;color:var(--ice)!important;border:1.5px solid var(--line)!important;box-shadow:none!important}
+.st-key-vector_tile_grid .stButton>button[kind="secondary"]:hover,.st-key-vector_tile_grid .stButton>button[data-testid="stBaseButton-secondary"]:hover{border-color:#3fa9ff!important}
+.st-key-vector_tile_grid .stButton>button[kind="primary"],.st-key-vector_tile_grid .stButton>button[data-testid="stBaseButton-primary"]{
+  background:radial-gradient(circle at 30% 20%,rgba(63,169,255,.38),rgba(0,180,255,.14))!important;
+  border:1.5px solid #3fa9ff!important;color:#bfe9ff!important;
+  box-shadow:0 0 0 2px #3fa9ff,0 0 16px rgba(63,169,255,.75),0 0 46px rgba(0,180,255,.45)!important;
+}
+.st-key-blue_actor_box [data-baseweb="tag"]{background-color:#5fb8e8!important;border-color:#5fb8e8!important;color:#04202e!important}
+.st-key-blue_actor_box [data-baseweb="tag"] span{color:#04202e!important}
+.st-key-red_actor_box [data-baseweb="tag"]{background-color:var(--red)!important;border-color:var(--red)!important;color:#2a0508!important}
+.st-key-red_actor_box [data-baseweb="tag"] span{color:#2a0508!important}
+div[data-testid="stVerticalBlockBorderWrapper"]{border-color:var(--line)!important;border-radius:16px!important;background:rgba(7,27,41,.56)}div[data-testid="stExpander"]{border:1px solid var(--line);border-radius:14px;background:rgba(7,26,39,.58)}div[data-testid="stAlert"]{border-radius:14px;border-width:1px}[data-testid="stDataFrame"]{border:1px solid var(--line);border-radius:14px;overflow:hidden}[data-testid="stDataFrame"] *{font-size:.88rem}
+hr{border-color:rgba(95,179,196,.18)!important}.stProgress>div>div>div>div{background:linear-gradient(90deg,#5ee8f0,#ffd279,#ff808d)}.stProgress>div>div{background:rgba(138,199,211,.13)}
+
+@media(max-width:1100px){.ws-feature-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.ws-domain-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.ws-brief-grid{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media(max-width:900px){.block-container{padding-left:.9rem;padding-right:.9rem}.ws-feature-grid,.ws-domain-grid{grid-template-columns:1fr}.ws-brief-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.ws-title{font-size:2.55rem}}
+</style>
+''', unsafe_allow_html=True)
+
+
+DOCTRINE_LABELS = {"rus": "🇷🇺 Russia — Narrative-First", "prc": "🇨🇳 China — Platform-First", "hybrid": "⬡ Compound Hybrid"}
+
+RED_MOVE_LIBRARY = {
+    "rus": [
+        {"title": "Maskirovka — Below-Threshold Vessel Activity", "desc": "GRU-linked vessel operates without transponder near the Svalbard EEZ. Attribution deniable.", "tag": "PROBE", "delta": 3},
+        {"title": "Article 4 Doubt Narrative", "desc": "AI-generated content questioning Finnish alliance commitment circulates on Nordic-language channels.", "tag": "EXPLOIT", "delta": 5},
+        {"title": "Reflexive Control — Greenland Friction", "desc": "Amplifies US–Greenland adversarial framing to widen an existing seam.", "tag": "ESCALATE", "delta": 6},
+        {"title": "GRU Signal Interference", "desc": "Below-Article-4 signal jamming reported near the GIUK gap.", "tag": "PROBE", "delta": 2},
+    ],
+    "prc": [
+        {"title": "Dual-Use Station Activation", "desc": "Research/surveillance station near the Polar Connect corridor increases data-collection posture.", "tag": "PROBE", "delta": 3},
+        {"title": "CAOFA Leverage Offer", "desc": "Conditional scientific-cooperation support offered in exchange for data-sovereignty concessions.", "tag": "EXPLOIT", "delta": 4},
+        {"title": "Platform-Scale Influence Push", "desc": "Coordinated content targeting Greenlandic independence sentiment, framed as economic opportunity.", "tag": "ESCALATE", "delta": 5},
+        {"title": "Rare-Earth Investment Conditionality", "desc": "Infrastructure financing offer quietly conditioned on long-term access rights.", "tag": "EXPLOIT", "delta": 4},
+    ],
+    "hybrid": [
+        {"title": "Compound Operation — Cyber + Narrative", "desc": "Coincident cyber probe and narrative push designed to saturate Blue Team attention.", "tag": "ESCALATE", "delta": 7},
+        {"title": "Russia–China Narrative Convergence", "desc": "Independently-sourced but mutually reinforcing content questioning NATO Arctic governance legitimacy.", "tag": "EXPLOIT", "delta": 6},
+    ],
+}
+
+ARB_STAGES = ["Notification", "Joint Verification", "Interim Continuity", "Time-Limited Conciliation", "Binding Arbitration"]
+
+COGWAR_ASSESSMENTS = {
+    "rus": {
+        "intent": 78, "autonomy": 82, "interaction": 61, "governance": 74,
+        "analysis": "Consistent with Russia's narrative-first doctrine: high-intent content targeting Nordic alliance solidarity via legal/sovereignty ambiguity, amplified through low-attribution channels.",
+        "blue_response": "Joint Nordic attribution statement recommended within T+4hrs to blunt narrative traction."
+    },
+    "prc": {
+        "intent": 64, "autonomy": 71, "interaction": 69, "governance": 58,
+        "analysis": "Consistent with China's platform-first doctrine: lower overt intent, higher reliance on infrastructure/data leverage and long-horizon economic access rather than direct narrative attack.",
+        "blue_response": "Monitor data-sovereignty and infrastructure-access terms attached to any cooperative offers before accepting."
+    },
+    "hybrid": {
+        "intent": 85, "autonomy": 80, "interaction": 74, "governance": 80,
+        "analysis": "Compound signature: narrative and platform pressure arriving together, designed to saturate Blue Team attention across more than one domain at once.",
+        "blue_response": "Prioritize triage — resolve the highest Cap Gap domain impact first rather than responding to both fronts equally."
+    }
+}
+
+WASHINGTON_TREATY_ARTICLES = [
+    {"article": "Article 1", "summary": "Parties settle disputes by peaceful means; refrain from the threat or use of force."},
+    {"article": "Article 2", "summary": "Parties contribute to peaceful/friendly international relations; economic collaboration."},
+    {"article": "Article 3", "summary": "Self-help and mutual aid — maintain and develop individual/collective capacity to resist armed attack."},
+    {"article": "Article 4", "summary": "Consultation whenever territorial integrity, political independence, or security of any Party is threatened."},
+    {"article": "Article 5", "summary": "Collective defense — an armed attack against one is an attack against all."},
+    {"article": "Article 6", "summary": "Defines the geographic scope of Articles 5/6 (North America, Europe, North Atlantic area)."},
+    {"article": "Article 7", "summary": "Does not affect, and shall not be interpreted as affecting, UN Charter rights/obligations."},
+    {"article": "Article 8", "summary": "Parties will not enter international engagements conflicting with this Treaty."},
+    {"article": "Article 9", "summary": "Establishes the North Atlantic Council and its subsidiary bodies."},
+    {"article": "Article 10", "summary": "Accession — any other European state may be invited to accede."},
+    {"article": "Article 11", "summary": "Ratification in accordance with constitutional processes."},
+    {"article": "Article 12", "summary": "After 10 years, Parties may consult on revising the Treaty."},
+    {"article": "Article 13", "summary": "After 20 years, a Party may withdraw with one year's notice."},
+    {"article": "Article 14", "summary": "Deposit of the Treaty; certified copies to signatories."},
+]
+
+# Hand-authored once, applied to any scored document -- this is what turns a "match" into an
+# actual assessment (is the Article's own language strong or weak here) instead of a bare count.
+# Not derived from live events or the uploaded document; it is a fixed judgment about the 1949
+# text itself, independent of what's being compared against it.
+ARTICLE_GAP_META = {
+    "Article 1": {"strength": "STRONG", "note": "Clear peaceful-means obligation, but sets no defined grey-zone or hybrid-activity threshold."},
+    "Article 2": {"strength": "WEAK", "note": "Aspirational language (\"will contribute\") with no measurable trigger or enforcement mechanism."},
+    "Article 3": {"strength": "WEAK", "note": "\"Continuous and effective self-help and mutual aid\" is undefined — no minimum capability standard or verification."},
+    "Article 4": {"strength": "WEAK", "note": "\"Whenever...is threatened\" sets no defined threshold, timeline, or evidentiary standard for consultation — the core interpretive gap this instrument is built to expose."},
+    "Article 5": {"strength": "MODERATE", "note": "Clear trigger (\"armed attack\") but silent on grey-zone, hybrid, or sub-threshold activity, and sets no evidentiary bar for invocation."},
+    "Article 6": {"strength": "STRONG", "note": "Geographically precise, but rigid and dated — does not address cyber, space, or seabed domains."},
+    "Article 7": {"strength": "PROCEDURAL", "note": "Clarifies relationship to the UN Charter; not a substantive trigger article."},
+    "Article 8": {"strength": "PROCEDURAL", "note": "Non-conflict declaration among Parties' other international engagements."},
+    "Article 9": {"strength": "MODERATE", "note": "Establishes the Council and a defence committee, but specifies no fast-track or emergency consultation timeline."},
+    "Article 10": {"strength": "PROCEDURAL", "note": "Accession mechanism."},
+    "Article 11": {"strength": "PROCEDURAL", "note": "Ratification mechanism."},
+    "Article 12": {"strength": "PROCEDURAL", "note": "Review mechanism after 10 years; no standing or triggered review cadence."},
+    "Article 13": {"strength": "PROCEDURAL", "note": "Withdrawal mechanism."},
+    "Article 14": {"strength": "PROCEDURAL", "note": "Administrative deposit clause."},
+}
+
+PRECEDENT_LIBRARY = [
+    {"treaty": "Boundary Waters Treaty (1909, US-Canada)", "focus": "Canals, dams, diversions, navigation, hydropower",
+     "why": "Standing International Joint Commission catches disputes before they become political crises. Best model for a standing bilateral grey-zone incident body."},
+    {"treaty": "Columbia River Treaty (1961, US-Canada)", "focus": "Dams, flood control, hydropower",
+     "why": "Permanent Engineering Board supplies facts; short deadline; then compulsory binding arbitration if unresolved."},
+    {"treaty": "Treaty of Canterbury (1986, UK-France)", "focus": "Channel Tunnel",
+     "why": "Continuous joint supervision of one specific strategic asset, plus treaty-based arbitration rules."},
+    {"treaty": "Treaty of Peace and Friendship (1984, Argentina-Chile)", "focus": "Beagle Channel, southern straits, navigation",
+     "why": "Settled a near-war over islands/channels; detailed conciliation-and-arbitration annex. High value for contested access and de-escalation design."},
+    {"treaty": "Convention of Mannheim (1868)", "focus": "Rhine navigation, ports, inland waterway rules",
+     "why": "Standing multistate navigation regime converting recurring friction into technical decisions rather than sovereignty crises."},
+    {"treaty": "Indus Waters Treaty (1960, India-Pakistan)", "focus": "Dams, hydropower, river infrastructure",
+     "why": "Canonical ladder: Permanent Commission -> Neutral Expert -> ad hoc Court of Arbitration. Has endured wars, though currently contested."},
+    {"treaty": "UNCLOS (1982), Part XV / Annex VII", "focus": "Straits, maritime access, offshore infrastructure",
+     "why": "Global fallback: Annex VII arbitration where other settlement routes fail. Best as a legal backstop beneath a tailored regional agreement."},
+    {"treaty": "Israel-Jordan Peace Treaty (1994)", "focus": "Shared rivers, diversions, water infrastructure, border crossings",
+     "why": "Joint water committee, prior-notification duty, data exchange. Shows how to manage routine violations before they become security incidents."},
+    {"treaty": "Mekong Agreement (1995)", "focus": "River development, dams, navigation",
+     "why": "Lower-intensity model: disputes go through the Mekong River Commission first. Better for confidence-building than coercive enforcement."},
+    {"treaty": "Energy Charter Treaty (1994)", "focus": "Pipelines, grids, cross-border energy transit",
+     "why": "Strongest multilateral pipeline analogue: expedited transit conciliation plus inter-state arbitration. Mixed record — borrow the mechanics, not the deterrent claim."},
+    {"treaty": "Treaty of Washington (1871, US-UK)", "focus": "Neutrality violations, fisheries access, boundary arbitration",
+     "why": "Resolved the Alabama Claims (a neutral state's failure to prevent hostile use of its territory — the direct historical analogue to a 'shadow fleet' or dual-use vessel operating from a nominally neutral port) via the Geneva Arbitration Tribunal; also established the Halifax Fisheries Commission and sent the San Juan boundary dispute to neutral third-party arbitration. The foundational historical precedent for resolving grey-zone violations through arbitration rather than escalation — directly informs the Arbitration Track's design."},
+]
+
+# PMESII-PT Governance Layer mapping -- shows which WinterStorm2030 module adds an
+# institutional/governance dimension to each PMESII-PT category. Hand-authored once;
+# the "current session" column is filled in live when the note is generated.
+PMESII_PT_MAPPING = [
+    {"dimension": "Political", "ws_module": "Governance Lab (document scoring) + Article 4 Stress Test Log",
+     "note": "Treaty/policy gap scoring maps directly here — where NATO institutional mechanisms lack a defined consultation trigger or threshold."},
+    {"dimension": "Military", "ws_module": "NATO Cap Gap (Command & Communications, Undersea Surveillance domains) + Arbitration Track",
+     "note": "Standing escalation-ladder mechanics (Boundary Waters / Columbia River / Canterbury model) add an institutional resolution path alongside raw capability scoring."},
+    {"dimension": "Economic", "ws_module": "Concession Engine (Resource type) + Energy Coercion vector",
+     "note": "Resource concessions and energy-leverage scenarios surface where economic dependency creates a governance seam, not just a capability one."},
+    {"dimension": "Social", "ws_module": "Narrative Analysis + Cognitive Warfare (IIC)",
+     "note": "Alliance-cohesion narratives are scored for intent/governance pressure — the social dimension of grey-zone activity, quantified rather than asserted."},
+    {"dimension": "Information", "ws_module": "Cognitive Warfare + OSINT Feed",
+     "note": "Real event data and doctrine-scored narrative assessments ground the information dimension in tagged, provenance-labeled evidence."},
+    {"dimension": "Infrastructure", "ws_module": "NATO Cap Gap (Infrastructure & Stockpiles, Industrial Capacity domains) + Critical Infrastructure vector",
+     "note": "Physical infrastructure exposure (cables, pipelines, icebreaker capacity) is scored as a capability domain, then linked to governance mechanisms via the Arbitration Track."},
+    {"dimension": "Physical Environment", "ws_module": "Actor Analysis seams + scenario description",
+     "note": "Arctic-specific constraints (ice cover, sparse comms, limited ports) currently live in actor \"seam\" text and freeform scenario description — not a dedicated scored layer. This is the one PMESII-PT dimension WinterStorm2030 does not yet quantify."},
+    {"dimension": "Time", "ws_module": "Scenario Clock + Turn counter + Degradation Log",
+     "note": "The turn-based structure and Scenario Clock give a temporal backbone — how quickly conditions degrade — that a static PMESII-PT baseline doesn't capture on its own."},
+]
+VIOLATION_TYPES = ["Unsafe Interference", "Unauthorized Inspection", "Navigation Obstruction", "Tampering",
+                    "Discriminatory Access Restriction", "Data Denial", "Coercive Maintenance Disruption"]
+ASSETS = ["GIUK Undersea Cable Corridor", "Svalbard Fibre Link", "Arctic Pipeline Segment",
+          "Denmark Strait Shipping Lane", "Northern Sea Route Corridor"]
+
+DOMAIN_NAMES = ["Infrastructure & Stockpiles", "Industrial Capacity (Icebreakers)",
+                "Command & Communications", "Undersea Surveillance", "Nordic Burden Sharing"]
+
+ACTOR_BASELINES = [
+    {"actor": "Finland", "g_gwc": 75.6, "iic": 76, "asi": 68, "esi": 72, "cd": 64, "exposure": "MEDIUM", "concession": "STABLE", "seam": "Article 5 commitment narratives"},
+    {"actor": "Norway", "g_gwc": 74.8, "iic": 73, "asi": 65, "esi": 75, "cd": 61, "exposure": "MEDIUM", "concession": "STABLE", "seam": "Svalbard sovereignty"},
+    {"actor": "Sweden", "g_gwc": 73.0, "iic": 74, "asi": 64, "esi": 71, "cd": 60, "exposure": "MEDIUM", "concession": "STABLE", "seam": "Neutrality reactivation"},
+    {"actor": "Denmark/Greenland", "g_gwc": 68.7, "iic": 70, "asi": 58, "esi": 68, "cd": 55, "exposure": "HIGH", "concession": "CRITICAL", "seam": "US adversarial framing"},
+    {"actor": "Iceland", "g_gwc": 59.3, "iic": 42, "asi": 56, "esi": 58, "cd": 38, "exposure": "CRITICAL", "concession": "VULNERABLE", "seam": "CD gap -44pts vs Russia"},
+    {"actor": "Canada", "g_gwc": 71.2, "iic": 66, "asi": 62, "esi": 69, "cd": 63, "exposure": "MEDIUM", "concession": "STABLE", "seam": "Northwest Passage sovereignty — NORAD modernization"},
+]
+
+# Adversarial governance vector profiles for Russia/China -- scored 0-100 across the same six
+# Adversarial Vector categories used in Scenario Setup (infra/disinfo/auto/energy/hybrid/legal).
+# Hand-authored once, consistent with each actor's doctrine (Russia narrative-first,
+# China platform-first) already established elsewhere in this build.
+RED_ACTOR_BASELINES = [
+    {"actor": "Russia", "doctrine": "🇷🇺 Narrative-First",
+     "infra": 68, "disinfo": 90, "auto": 62, "energy": 74, "hybrid": 82, "legal": 58,
+     "primary_vector": "Disinformation Op",
+     "seam": "Nordic alliance solidarity narratives; Svalbard Article 9 ambiguity; below-threshold GIUK gap probing"},
+    {"actor": "China", "doctrine": "🇨🇳 Platform-First",
+     "infra": 80, "disinfo": 55, "auto": 70, "energy": 78, "hybrid": 65, "legal": 72,
+     "primary_vector": "Critical Infrastructure",
+     "seam": "Polar Connect data-sovereignty leverage; Greenland economic access; Northern Sea Route research-vessel presence"},
+]
+RED_VECTOR_KEYS = ["infra", "disinfo", "auto", "energy", "hybrid", "legal"]
+
+TURN_LIMIT = 6
+
+PRIMARY_OBJECTIVES = {
+    "prevent_article4": {
+        "label": "Prevent Arctic Crisis Escalation to Article 4",
+        "description": f"Prevent the Arctic crisis from escalating into a NATO Article 4 invocation within {TURN_LIMIT} turns. Immediate loss if the Cap Gap reaches 75% at any point.",
+    },
+    "stabilize_theatre": {
+        "label": "Stabilize the High North Theatre",
+        "description": f"Bring the NATO Capability Gap below 45% by Turn {TURN_LIMIT} through negotiated resolution, not just raw capability closure.",
+    },
+}
+SECONDARY_OBJECTIVES = {
+    "cohesion": {"label": "Maintain alliance cohesion above 60%"},
+    "svalbard": {"label": "Prevent Russia securing a permanent Svalbard presence"},
+    "declaration": {"label": "Get at least 3 allies to sign a joint Arctic declaration"},
+}
+
+# Capability Cards -- the Disruptive Capabilities deliverable format: Capability -> Own Action
+# -> Enemy Action -> Countermeasures, for the three confirmed Red Team scenarios. Own/Enemy
+# Action text is hand-authored once; capability_domain and related_asset are used to pull in
+# live session data (current domain %, whether an Arbitration case is open) when generated.
+CAPABILITY_CARD_SCENARIOS = {
+    "giuk": {
+        "label": "GIUK Gap — Undersea Surveillance Corridor",
+        "capability_domain": "Undersea Surveillance",
+        "related_asset": "GIUK Undersea Cable Corridor",
+        "keywords": ["giuk", "signal", "submarine", "cable"],
+        "own_action": "NATO ASW patrol cadence, UK/Norway maritime patrol aircraft coordination, undersea sensor network monitoring.",
+        "enemy_action": "Below-threshold submarine transit or GRU-linked signal interference near the gap, timed to sit under attribution and consultation thresholds.",
+        "countermeasures": "Increase patrol cadence and joint ISR sharing; if a specific incident is attributable, open an Arbitration Track case; invest in the Undersea Surveillance capability domain.",
+    },
+    "nsr": {
+        "label": "Northern Sea Route — Arctic Shipping Corridor",
+        "capability_domain": "Industrial Capacity (Icebreakers)",
+        "related_asset": "Northern Sea Route Corridor",
+        "keywords": ["mineral", "vessel", "research", "route", "icebreaker"],
+        "own_action": "ICE Pact icebreaker development (US/Canada/Finland), Coast Guard Arctic Security Cutter fielding, joint Nordic-NATO presence patrols.",
+        "enemy_action": "Chinese research-vessel presence in outer continental shelf areas; Russian LNG export route militarization and infrastructure expansion along the route.",
+        "countermeasures": "Joint NATO-Nordic icebreaker presence; enforce CAOFA-style access moratoria; escalate to the Arbitration Track against the Northern Sea Route Corridor asset if access is contested.",
+    },
+    "svalbard": {
+        "label": "Svalbard — Treaty Article 9 Demilitarization Zone",
+        "capability_domain": "Command & Communications",
+        "related_asset": "Svalbard Fibre Link",
+        "keywords": ["svalbard", "vessel", "eez", "article 9"],
+        "own_action": "Norwegian sovereignty enforcement short of militarization; allied ISR monitoring; joint Nordic attribution statements when incidents occur.",
+        "enemy_action": "GRU-linked below-threshold vessel activity in the Svalbard EEZ; disinformation questioning Norway's Article 9 compliance to justify further presence.",
+        "countermeasures": "Run a Narrative Analysis to assess disinformation intent; escalate via the Arbitration Track (Svalbard Treaty Article 9 dispute is already modeled there); joint Nordic attribution statement.",
+    },
+}
+
+def generate_capability_card(scenario_key, doctrine):
+    card = CAPABILITY_CARD_SCENARIOS[scenario_key]
+    data = load_all()
+    state = data["state"]
+    domain_gap = next((d["gap"] for d in state.get("domains", []) if d["name"] == card["capability_domain"]), None)
+    ct = data.get("contested_table", {})
+    arb_status = "No active Arbitration case referencing this asset." if ct.get("status") != "OPEN" else f"An Arbitration case is currently OPEN (artifact: {DISPUTED_ARTIFACTS.get(ct.get('artifact'), {}).get('label', ct.get('artifact'))})."
+    pool = RED_MOVE_LIBRARY.get(doctrine, RED_MOVE_LIBRARY["rus"])
+    matched = [m for m in pool if any(kw in (m["title"] + " " + m["desc"]).lower() for kw in card["keywords"])]
+    example_move = (matched or pool)[0]
+
+    lines = [
+        f"# Capability Card — {card['label']}",
+        f"Doctrine in play: {DOCTRINE_LABELS.get(doctrine, doctrine)} | Turn: {state.get('turn')}",
+        "",
+        f"**Capability Domain:** {card['capability_domain']}" + (f" (currently {domain_gap}% gap)" if domain_gap is not None else ""),
+        "",
+        f"**Own Action (Blue):** {card['own_action']}",
+        "",
+        f"**Enemy Action (Red):** {card['enemy_action']}",
+        f"*Illustrative Agentic AI move under this doctrine: [{example_move['tag']}] {example_move['title']} — {example_move['desc']}*",
+        "",
+        f"**Countermeasures:** {card['countermeasures']}",
+        f"*Session status: {arb_status}*",
+    ]
+    return "\n".join(lines)
+
+DEFAULT_DATA = {
+    "state": {
+        "turn": 1, "cap_gap": 64, "concession_modifier": 0, "narrative_modifier": 0,
+        "doctrine": "rus", "scenario_name": "", "scenario_desc": "", "treaty_flag": False, "win_win_active": False,
+        "started_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        "adversarial_vector": None, "intensity": "medium",
+        "blue_actors": ["Norway", "Denmark/Greenland", "Finland", "Iceland"], "red_actors": ["Russia"],
+        "scenario_active": False, "turn_action_taken": False,
+        "clock_running": False, "clock_started_at": None, "clock_elapsed_seconds": 0,
+        "primary_objective": None, "secondary_objectives": [],
+        "alliance_cohesion": 65, "red_svalbard_flag": False, "declaration_signatories": [],
+        "provocation": 0, "last_blue_action_type": None,
+        "game_over": False, "game_result": None, "game_result_text": "",
+        "domains": [
+            {"name": DOMAIN_NAMES[0], "gap": 61},
+            {"name": DOMAIN_NAMES[1], "gap": 70},
+            {"name": DOMAIN_NAMES[2], "gap": 58},
+            {"name": DOMAIN_NAMES[3], "gap": 72},
+            {"name": DOMAIN_NAMES[4], "gap": 59},
+        ],
+    },
+    "log": [],
+    "arbitration": [],
+    "article4_log": [],
+    "calib_log": [],
+    "govlab_docs": [],
+    "contested_table": {"status": "CLOSED", "artifact": None, "trades": {}, "escalation_text": "", "escalation_run": False, "opened_by": ""},
+    "presence": {},
+    "degradation_log": []
+}
+
+def capability_posture(gap):
+    """Return a human-readable readiness posture for the composite gap."""
+    if gap < 35:
+        return "RESILIENT", "ws-risk-low"
+    if gap < 55:
+        return "CONTESTED", "ws-risk-med"
+    if gap < 75:
+        return "ELEVATED", "ws-risk-high"
+    return "CRITICAL", "ws-risk-high"
+
+
+
+def modifier_text(value):
+    return f"{int(value):+d}"
+
+
+def domain_card_style(gap):
+    if gap < 40:
+        return "low", "Resilient"
+    if gap < 60:
+        return "med", "Contested"
+    return "high", "Exposed"
+
+
+def render_domain_cards(domains):
+    cards = []
+    for domain in domains:
+        gap = int(domain["gap"])
+        card_class, label = domain_card_style(gap)
+        cards.append(
+            f"<div class='ws-domain-card {card_class}'><span class='name'>{domain['name']}</span><span class='gap'>{gap}%</span><span class='tag'>{label}</span></div>"
+        )
+    st.markdown(f"<div class='ws-domain-grid'>{''.join(cards)}</div>", unsafe_allow_html=True)
+
+
+def render_briefing_panel(state, callsign, posture, posture_class):
+    try:
+        log_df = load_log()
+        latest_move = log_df.iloc[0]["move_type"] if not log_df.empty else "Awaiting first logged action"
+    except Exception:
+        latest_move = "Activity feed unavailable"
+    try:
+        arb_df = load_arbitration()
+        open_cases = int((arb_df["status"] == "OPEN").sum()) if not arb_df.empty else 0
+    except Exception:
+        open_cases = 0
+
+    treaty_state = "Active" if state.get("treaty_flag") else "Inactive"
+    win_state = "Available" if state.get("win_win_active") else "Contested"
+    st.markdown(
+        f"""
+        <div class="ws-brief">
+          <div class="ws-kicker">High North Theatre Brief</div>
+          <div class="ws-brief-title">NATO Arctic Situation Snapshot</div>
+          <div class="ws-subtitle">Operational picture for <strong style='color:#edf7fa'>{callsign.upper()}</strong> across grey-zone competition, concession pressure, arbitration posture, and collective readiness.</div>
+          <div class="ws-brief-grid">
+            <div class="ws-mini-card"><small>Capability Posture</small><strong class="{posture_class}">{posture}</strong></div>
+            <div class="ws-mini-card"><small>Active Doctrine</small><strong>{DOCTRINE_LABELS.get(state.get('doctrine','rus'),'—')}</strong></div>
+            <div class="ws-mini-card"><small>Open Arbitration Cases</small><strong>{open_cases}</strong></div>
+            <div class="ws-mini-card"><small>Treaty / Legal Mechanism</small><strong>{treaty_state}</strong></div>
+            <div class="ws-mini-card"><small>Latest Activity</small><strong>{latest_move}</strong></div>
+            <div class="ws-mini-card"><small>Stability Window</small><strong>{win_state}</strong></div>
+          </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+def styled_actor_table():
+    df = pd.DataFrame(ACTOR_BASELINES).rename(columns={
+        "actor": "Actor", "g_gwc": "G-GWC", "iic": "IIC", "asi": "ASI",
+        "esi": "ESI", "cd": "CD", "exposure": "Exposure",
+        "concession": "Concession Status", "seam": "Primary Seam"
+    })
+    return df.style.map(
+        lambda v: "color:#ff727f;font-weight:700" if v in {"HIGH", "CRITICAL", "VULNERABLE"}
+        else ("color:#ffc867;font-weight:700" if v == "MEDIUM" else "color:#7ee2a8;font-weight:700"),
+        subset=["Exposure", "Concession Status"]
+    ).format({"G-GWC": "{:.1f}"})
+
+def styled_red_actor_table():
+    df = pd.DataFrame(RED_ACTOR_BASELINES).rename(columns={
+        "actor": "Actor", "doctrine": "Doctrine",
+        "infra": "Critical Infra.", "disinfo": "Disinformation", "auto": "Autonomous Sys.",
+        "energy": "Energy Coercion", "hybrid": "Compound Hybrid", "legal": "Legal/Sovereignty",
+        "primary_vector": "Primary Vector", "seam": "Grey-Zone Exploitation Seam"
+    })
+    score_cols = ["Critical Infra.", "Disinformation", "Autonomous Sys.", "Energy Coercion", "Compound Hybrid", "Legal/Sovereignty"]
+    return df.style.bar(subset=score_cols, vmin=0, vmax=100, color="#ff808d")
+
+def compute_actor_thresholds():
+    """Live per-actor threshold status -- baseline concession status escalated by how many
+    times that actor has actually been the subject of a concession this session."""
+    log = load_all()["log"]
+    counts = {}
+    for e in log:
+        a = e.get("actor", "")
+        counts[a] = counts.get(a, 0) + 1
+    rows = []
+    for a in ACTOR_BASELINES:
+        c = counts.get(a["actor"], 0)
+        live_status = a["concession"]
+        if c >= 3 and live_status == "STABLE":
+            live_status = "WATCH"
+        elif c >= 5 and live_status in {"STABLE", "WATCH"}:
+            live_status = "CRITICAL"
+        rows.append({"Actor": a["actor"], "Baseline": a["concession"], "Concessions This Session": c,
+                     "Live Status": live_status, "Primary Seam": a["seam"]})
+    return rows
+
+# ══════════════════════════════════════════════════════════
+# JSONBIN.IO — shared, persistent state (this is what makes async multiplayer work)
+# One JSON document, one API key. No SQL, no schema, no service-account file.
+# ══════════════════════════════════════════════════════════
+def _bin_url():
+    return f"https://api.jsonbin.io/v3/b/{st.secrets['jsonbin']['bin_id']}"
+
+def _headers():
+    return {"X-Master-Key": st.secrets["jsonbin"]["master_key"], "Content-Type": "application/json"}
+
+def _fetch_bin():
+    resp = requests.get(f"{_bin_url()}/latest", headers=_headers(), timeout=10)
+    resp.raise_for_status()
+    return resp.json()["record"]
+
+@st.cache_data(ttl=3, show_spinner=False)
+def _load_all_cached():
+    return _fetch_bin()
+
+def load_all():
+    """Every helper in this app calls load_all() independently -- without caching, a single
+    page load can fire 10+ GET requests to JSONBin, which burns through the free tier's rate
+    limit fast (worse with several participants and/or Live Mode's auto-refresh running).
+    A short 3-second cache collapses those into one real request per rerun, and save_all()
+    below clears it immediately so writes are never stale."""
+    try:
+        data = _load_all_cached()
+    except requests.exceptions.RequestException as e:
+        st.error(
+            "⚠️ Couldn't reach the shared session store (JSONBin) right now. This is almost "
+            "always a temporary rate limit or network hiccup, not a bug in the game logic. "
+            f"\n\nDetails: {e}"
+        )
+        if st.button("🔄 Retry"):
+            _load_all_cached.clear()
+            st.rerun()
+        st.stop()
+    # backfill any missing top-level keys so an incomplete/older starter bin doesn't break the app
+    for k, v in DEFAULT_DATA.items():
+        if k not in data:
+            data[k] = v
+    # also backfill missing keys *inside* state -- older bins were saved before fields like
+    # "domains" existed, so state itself can be present but incomplete
+    for k, v in DEFAULT_DATA["state"].items():
+        if k not in data["state"]:
+            data["state"][k] = v
+    return data
+
+def save_all(data):
+    resp = requests.put(_bin_url(), headers=_headers(), json=data, timeout=10)
+    resp.raise_for_status()
+    _load_all_cached.clear()  # invalidate the cache immediately so the next read isn't stale
+
+def load_state():
+    return load_all()["state"]
+
+def save_state(state):
+    data = load_all()
+    data["state"] = state
+    save_all(data)
+
+def append_log(turn, callsign, actor, move_type, source, detail, cap_gap_delta):
+    data = load_all()
+    data["log"].append({
+        "ts": datetime.now().strftime("%Y-%m-%d %H:%M:%S"), "turn": turn, "callsign": callsign,
+        "actor": actor, "move_type": move_type, "source": source, "detail": detail, "cap_gap_delta": cap_gap_delta
+    })
+    if callsign != "Agentic AI":
+        data["state"]["turn_action_taken"] = True
+    save_all(data)
+
+def load_log():
+    log = load_all()["log"]
+    if not log:
+        return pd.DataFrame(columns=["ts", "turn", "callsign", "actor", "move_type", "source", "detail", "cap_gap_delta"])
+    return pd.DataFrame(list(reversed(log)))
+
+def render_move_feed():
+    st.markdown("<div class='ws-section-label'>📜 Players Shared Move Feed</div>", unsafe_allow_html=True)
+    st.caption("Agentic AI moves in human-vs-AI play, or other participants' moves in human-vs-human play — always visible here, no matter which tab you're on.")
+    raw_log = load_all()["log"]
+    if not raw_log:
+        st.info("No moves logged yet.")
+        return
+    source_colors = {"REAL": "#7ae7f4", "SIMULATED": "#ff808d", "ANALYST": "#ffd279", "ARBITRATION": "#b9c9ff"}
+    items_html = ""
+    for entry in reversed(raw_log):
+        src = entry.get("source", "ANALYST")
+        color = source_colors.get(src, "#9eb6c2")
+        delta = entry.get("cap_gap_delta", 0)
+        delta_str = f"{delta:+d}%" if delta else "±0%"
+        detail = html.escape(str(entry.get("detail", "")))
+        actor = html.escape(str(entry.get("actor", "")))
+        move_type = html.escape(str(entry.get("move_type", "")))
+        callsign_e = html.escape(str(entry.get("callsign", "")))
+        items_html += f"""
+        <div style="border:1px solid var(--line);border-left:3px solid {color};border-radius:10px;padding:.6rem .7rem;margin-bottom:.5rem;background:rgba(8,30,46,.52);">
+          <div style="font-size:.68rem;color:var(--muted);letter-spacing:.03em;">Turn {entry.get('turn','?')} · {entry.get('ts','')} · {callsign_e}</div>
+          <div style="margin:.2rem 0;"><span style="color:{color};font-weight:700;font-size:.7rem;text-transform:uppercase;letter-spacing:.05em;">{src}</span><br>
+            <strong style="color:var(--ice);">{actor}</strong>
+            <span style="color:var(--muted);"> — {move_type}</span></div>
+          <div style="color:var(--muted);font-size:.82rem;">{detail}</div>
+          <div style="font-size:.72rem;color:{'#ff727f' if delta>0 else '#7ee2a8' if delta<0 else 'var(--muted)'};margin-top:.2rem;">Cap Gap impact: {delta_str}</div>
+        </div>"""
+    st.markdown(f'<div style="max-height:78vh;overflow-y:auto;padding-right:.3rem;">{items_html}</div>', unsafe_allow_html=True)
+
+def get_ai_moves():
+    """Agentic AI Red Team moves only -- end_turn() logs these with callsign 'Agentic AI',
+    distinguishing them from Cognitive Warfare/Narrative Analysis/Contested Table entries
+    which also carry source=SIMULATED but under the human participant's own callsign."""
+    raw_log = load_all()["log"]
+    return [e for e in raw_log if e.get("callsign") == "Agentic AI"]
+
+def get_last_ai_move():
+    moves = get_ai_moves()
+    return moves[-1] if moves else None
+
+def generate_turn_recommendation(state):
+    """Rules-based (no LLM) next-step suggestion, driven by the last Agentic AI move's tag/
+    content and the current Cap Gap. This is what answers 'what should I do next' after
+    building a scenario or after End Turn generates a Red Team move."""
+    last_move = get_last_ai_move()
+    if not state.get("scenario_active"):
+        return [("📋 Scenario Setup", "Configure and Execute Players Move to activate the scenario before taking further action.")]
+    if not last_move:
+        return [("🤝 Concession Engine", "No Agentic AI move yet — trigger your opening concession, or click End Turn to see the AI's first move.")]
+
+    move_type = last_move.get("move_type", "")
+    tag = move_type.split(" — ")[0] if " — " in move_type else ""
+    title_desc = (move_type + " " + last_move.get("detail", "")).lower()
+    recs = []
+
+    if tag == "ESCALATE":
+        recs.append(("⚖ Arbitration Track", "This was an ESCALATE-tagged move — consider opening or advancing an Arbitration case to contain it before it compounds."))
+    if "greenland" in title_desc or "denmark" in title_desc:
+        recs.append(("🤝 Concession Engine", "This move touches Denmark/Greenland — the Deadlock Protocol is likely to trigger here; check the Concession Engine."))
+    if any(w in title_desc for w in ["narrative", "influence", "content", "sovereignty"]):
+        recs.append(("🗞️ Narrative Analysis", "This looks narrative-driven — run a Narrative Analysis for a HIGH/MEDIUM/LOW read and a foresight recommendation."))
+    if any(w in title_desc for w in ["cable", "pipeline", "infrastructure", "vessel", "icebreaker"]):
+        recs.append(("📡 NATO Cap Gap", "This targets infrastructure — check the five-domain breakdown to see which domain absorbed the impact."))
+    if state["cap_gap"] >= 70:
+        recs.append(("📡 NATO Cap Gap", f"Cap Gap is elevated ({state['cap_gap']}%) — review the five-domain breakdown to see what's driving it."))
+    if not recs:
+        recs.append(("⏩ End Turn", "No specific flags from this move — take another action if you want to respond, or End Turn for the next AI analysis."))
+    # de-duplicate while preserving order
+    seen = set()
+    unique_recs = []
+    for r in recs:
+        if r[0] not in seen:
+            seen.add(r[0])
+            unique_recs.append(r)
+    return unique_recs[:3]
+
+def render_ai_move_panel():
+    ai_moves = get_ai_moves()
+    st.markdown(f"<div class='ws-section-label'>⚡ Agentic AI — Turn-by-Turn Red Team Moves</div>", unsafe_allow_html=True)
+    st.caption(f"{len(ai_moves)} Red Team move{'s' if len(ai_moves)!=1 else ''} generated this session via End Turn — separate from the general Players Shared Move Feed.")
+    if not ai_moves:
+        st.info("No AI moves yet. Click \"End Turn\" above to generate Turn 2.")
+        return
+    tag_colors = {"PROBE": "var(--amber)", "EXPLOIT": "var(--red)", "ESCALATE": "var(--red)", "WITHDRAW": "var(--green)"}
+    items_html = ""
+    for m in reversed(ai_moves):
+        move_type = m.get("move_type", "")
+        tag = move_type.split(" — ")[0] if " — " in move_type else "MOVE"
+        title = move_type.split(" — ", 1)[1] if " — " in move_type else move_type
+        color = tag_colors.get(tag, "var(--muted)")
+        items_html += f"""
+        <div style="border:1px solid var(--line);border-left:3px solid {color};border-radius:10px;padding:.65rem .8rem;margin-bottom:.5rem;background:rgba(8,30,46,.5);">
+          <div style="font-size:.68rem;color:var(--muted);">Turn {m.get('turn','?')} · {m.get('ts','')} · {html.escape(str(m.get('actor','')))}</div>
+          <div style="margin:.2rem 0;"><span style="color:{color};font-weight:700;font-size:.72rem;text-transform:uppercase;">{tag}</span>
+            <strong style="color:var(--ice);margin-left:.4rem;">{html.escape(title)}</strong></div>
+          <div style="color:var(--muted);font-size:.85rem;">{html.escape(str(m.get('detail','')))}</div>
+        </div>"""
+    st.markdown(f'<div style="max-height:340px;overflow-y:auto;">{items_html}</div>', unsafe_allow_html=True)
+
+def heartbeat(callsign):
+    """Records this participant as 'seen' -- throttled to once per ~20s so it doesn't add a
+    write on every single rerun (a real concern given JSONBin's rate limit). This only ever
+    advances when a page actually reruns (a click, or Live Mode's auto-refresh) -- there's no
+    true background presence tracking, same limitation as the Scenario Clock."""
+    last_sent = st.session_state.get("last_heartbeat_sent")
+    now = datetime.now()
+    if last_sent and (now - last_sent).total_seconds() < 20:
+        return
+    data = load_all()
+    presence = data.get("presence", {})
+    presence[callsign] = now.strftime("%Y-%m-%d %H:%M:%S")
+    data["presence"] = presence
+    save_all(data)
+    st.session_state["last_heartbeat_sent"] = now
+
+def render_presence_panel(callsign):
+    heartbeat(callsign)
+    data = load_all()
+    presence = data.get("presence", {})
+    now = datetime.now()
+    online = []
+    for name, ts in presence.items():
+        try:
+            last_seen = datetime.strptime(ts, "%Y-%m-%d %H:%M:%S")
+            if (now - last_seen).total_seconds() < 75:
+                online.append(name)
+        except Exception:
+            continue
+    others = [n for n in online if n != callsign]
+    if others:
+        st.markdown(f"<div class='ws-status'><span class='ws-dot'></span> 🟢 Online now with you: {', '.join(sorted(others))}</div>", unsafe_allow_html=True)
+    else:
+        st.caption("🔴 No other participants detected online in the last 75 seconds. This only updates when someone's page reruns (a click, or Live Mode's auto-refresh) — it's not a true real-time presence signal.")
+
+def render_mission_status(state):
+    if not state.get("primary_objective"):
+        st.info("📋 No mission configured yet — set your objectives in Scenario Setup (Step 00) and click Execute Players Move to begin.")
+        return
+
+    if state.get("game_over"):
+        result = state.get("game_result")
+        color = {"WIN": "var(--green)", "PARTIAL": "#ffd279", "LOSS": "var(--red)"}.get(result, "var(--muted)")
+        icon = {"WIN": "🏆", "PARTIAL": "⚠️", "LOSS": "💥"}.get(result, "🏁")
+        st.markdown(
+            f"<div style='border:2px solid {color};border-radius:14px;padding:1.1rem 1.3rem;background:rgba(255,255,255,.03);margin-bottom:.8rem;'>"
+            f"<div style='font-family:Rajdhani,sans-serif;font-size:1.6rem;font-weight:700;color:{color};'>{icon} MISSION {result}</div>"
+            f"<div style='color:var(--ice);margin-top:.3rem;'>{state.get('game_result_text','')}</div>"
+            f"<div style='color:var(--muted);font-size:.8rem;margin-top:.4rem;'>Start a new scenario in Scenario Setup to play again.</div>"
+            f"</div>", unsafe_allow_html=True)
+        return
+
+    primary = PRIMARY_OBJECTIVES.get(state["primary_objective"], {})
+    sec_results = evaluate_secondary_objectives(state)
+    turns_left = max(0, TURN_LIMIT - state["turn"] + 1)
+    sec_html = "".join(
+        f"<div style='margin-top:.25rem;'>{'✅' if met else '⬜'} {SECONDARY_OBJECTIVES[k]['label']}</div>"
+        for k, met in sec_results.items()
+    )
+    cohesion = state.get("alliance_cohesion", 65)
+    cohesion_color = "var(--green)" if cohesion >= 60 else "var(--red)"
+    st.markdown(
+        f"<div style='border:1px solid var(--line2);border-left:4px solid #3fa9ff;border-radius:14px;padding:1rem 1.2rem;background:rgba(63,169,255,.05);margin-bottom:.8rem;'>"
+        f"<div style='font-size:.72rem;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;'>Primary Objective &nbsp;·&nbsp; {turns_left} turn(s) remaining</div>"
+        f"<div style='color:var(--ice);font-weight:700;font-size:1.05rem;margin:.15rem 0 .5rem;'>🎯 {primary.get('label','')}</div>"
+        f"<div style='color:var(--muted);font-size:.85rem;margin-bottom:.6rem;'>Alliance Cohesion: <strong style='color:{cohesion_color}'>{cohesion}%</strong></div>"
+        f"<div style='font-size:.72rem;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;'>Secondary Objectives</div>"
+        f"{sec_html}</div>", unsafe_allow_html=True)
+
+def render_winwin_banner(state):
+    is_active = bool(state.get("win_win_active"))
+    if "winwin_prev" not in st.session_state:
+        st.session_state["winwin_prev"] = False
+    if is_active and not st.session_state["winwin_prev"]:
+        st.session_state["winwin_dismissed"] = False
+    st.session_state["winwin_prev"] = is_active
+
+    if is_active and not st.session_state.get("winwin_dismissed"):
+        bcol1, bcol2 = st.columns([12, 1])
+        with bcol1:
+            st.markdown(
+                "<div style='border:1px solid var(--green);border-left:4px solid var(--green);border-radius:12px;"
+                "padding:.75rem 1rem;background:rgba(140,232,177,.08);color:var(--ice);margin-bottom:.8rem;'>"
+                "<strong style='color:var(--green);'>🌟 WIN-WIN CONDITION DETECTED</strong> — Composite Cap Gap has fallen below 45% "
+                "and a treaty/legal concession has been logged. A cooperative resolution is available at the Contested Table."
+                "</div>", unsafe_allow_html=True)
+        with bcol2:
+            if st.button("✕", key="dismiss_winwin"):
+                st.session_state["winwin_dismissed"] = True
+                st.rerun()
+
+def load_arbitration():
+    arb = load_all()["arbitration"]
+    if not arb:
+        return pd.DataFrame(columns=["id", "case_id", "status", "violation", "asset", "stage", "opened_by", "opened_at"])
+    return pd.DataFrame(arb)
+
+def load_contested_table():
+    data = load_all()
+    return data.get("contested_table", {"status": "CLOSED", "artifact": None, "trades": {}, "escalation_text": "", "escalation_run": False, "opened_by": ""})
+
+def open_arbitration(violation, asset, callsign):
+    data = load_all()
+    next_id = max([c["id"] for c in data["arbitration"]], default=0) + 1
+    data["arbitration"].append({
+        "id": next_id, "case_id": datetime.now().strftime("%Y%m%d%H%M%S"),
+        "status": "OPEN", "violation": violation, "asset": asset, "stage": 1,
+        "opened_by": callsign, "opened_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    })
+    save_all(data)
+
+def update_arbitration(case_row_id, fields):
+    data = load_all()
+    for c in data["arbitration"]:
+        if c["id"] == case_row_id:
+            c.update(fields)
+    save_all(data)
+
+def load_article4_log():
+    log = load_all()["article4_log"]
+    return pd.DataFrame(list(reversed(log))) if log else pd.DataFrame(columns=["turn", "ts", "domain", "source", "title", "url"])
+
+def append_article4(turn, domain_name, source, title, url=""):
+    data = load_all()
+    data["article4_log"].append({
+        "turn": turn, "ts": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        "domain": domain_name, "source": source, "title": title, "url": url
+    })
+    save_all(data)
+
+def load_calib_log():
+    log = load_all()["calib_log"]
+    return pd.DataFrame(list(reversed(log))) if log else pd.DataFrame(columns=["ts", "violation", "title", "domain", "url"])
+
+def append_calib(violation, title, domain, url=""):
+    data = load_all()
+    data["calib_log"].append({
+        "ts": datetime.now().strftime("%Y-%m-%d %H:%M:%S"), "violation": violation, "title": title, "domain": domain, "url": url
+    })
+    save_all(data)
+
+def load_govlab_docs():
+    docs = load_all()["govlab_docs"]
+    return list(reversed(docs))
+
+def append_govlab_doc(doc_record):
+    data = load_all()
+    data["govlab_docs"].append(doc_record)
+    save_all(data)
+
+# ══════════════════════════════════════════════════════════
+# GOVERNANCE LAB — document scoring engine
+# Rules-based (keyword/overlap) scoring against NATO doctrine language and the live
+# session's own generated evidence. Explicitly NOT an LLM call — same security posture
+# as everything else in this deployment. Labeled as indicative, not legal analysis.
+# ══════════════════════════════════════════════════════════
+def generate_pmesii_pt_note():
+    """Combines the hand-authored PMESII-PT mapping with live session data into the short
+    structured note the Operational Environment workstream asked for."""
+    data = load_all()
+    state = data["state"]
+    domains = {d["name"]: d["gap"] for d in state.get("domains", [])}
+    lines = [
+        f"# PMESII-PT Governance Layer Note — WinterStorm2030",
+        f"Scenario: {state.get('scenario_name') or '(not set)'} | Doctrine: {DOCTRINE_LABELS.get(state.get('doctrine','rus'))} | Turn: {state.get('turn')} | Cap Gap: {state.get('cap_gap')}%",
+        "",
+        "This note identifies where WinterStorm2030's governance/institutional analysis adds a layer on top of a standard PMESII-PT physical-environment baseline.",
+        ""
+    ]
+    for row in PMESII_PT_MAPPING:
+        lines.append(f"**{row['dimension']}** — *{row['ws_module']}*")
+        lines.append(f"{row['note']}")
+        if row["dimension"] == "Infrastructure":
+            lines.append(f"Current session: Infrastructure & Stockpiles at {domains.get('Infrastructure & Stockpiles','—')}%, Industrial Capacity at {domains.get('Industrial Capacity (Icebreakers)','—')}%.")
+        if row["dimension"] == "Military":
+            lines.append(f"Current session: Command & Communications at {domains.get('Command & Communications','—')}%, Undersea Surveillance at {domains.get('Undersea Surveillance','—')}%.")
+        lines.append("")
+    return "\n".join(lines)
+
+def extract_text_from_upload(uploaded_file):
+    """Extracts text from .txt, .pdf, or .docx uploads. PDF/DOCX parsing needs pypdf and
+    python-docx respectively -- if either isn't installed in the deployed environment, this
+    fails gracefully with a clear message rather than crashing the app."""
+    ext = uploaded_file.name.split(".")[-1].lower()
+    if ext == "txt":
+        return uploaded_file.read().decode("utf-8", errors="ignore"), None
+    if ext == "pdf":
+        try:
+            import pypdf
+            reader = pypdf.PdfReader(uploaded_file)
+            text = "\n".join((page.extract_text() or "") for page in reader.pages)
+            return text, None
+        except ImportError:
+            return "", "PDF support requires the 'pypdf' package — add it to requirements.txt and redeploy."
+        except Exception as e:
+            return "", f"Could not extract text from this PDF: {e}"
+    if ext == "docx":
+        try:
+            import docx
+            document = docx.Document(uploaded_file)
+            text = "\n".join(p.text for p in document.paragraphs)
+            return text, None
+        except ImportError:
+            return "", "DOCX support requires the 'python-docx' package — add it to requirements.txt and redeploy."
+        except Exception as e:
+            return "", f"Could not extract text from this DOCX: {e}"
+    return "", f"Unsupported file type: .{ext}"
+
+def score_document(doc_text, doc_title, callsign, live_query="", live_timespan="7d"):
+    text_lower = doc_text.lower()
+
+    # 1. Washington Treaty article relevance -- keyword overlap per article
+    article_matches = []
+    for art in WASHINGTON_TREATY_ARTICLES:
+        keywords = [w.strip(".,()").lower() for w in art["summary"].replace("/", " ").split() if len(w) > 5]
+        hits = sum(1 for kw in set(keywords) if kw in text_lower)
+        if hits > 0:
+            article_matches.append({"article": art["article"], "summary": art["summary"], "keyword_hits": hits})
+    article_matches.sort(key=lambda x: -x["keyword_hits"])
+
+    # 2. Grey-zone violation category coverage
+    violation_hits = {}
+    for v in VIOLATION_TYPES:
+        terms = v.lower().replace("-", " ").split()
+        count = sum(text_lower.count(t) for t in terms if len(t) > 4)
+        violation_hits[v] = count
+    covered_violations = [v for v, c in violation_hits.items() if c > 0]
+
+    # 3. Precedent library alignment -- which comparative treaties share vocabulary with this document
+    precedent_matches = []
+    for p in PRECEDENT_LIBRARY:
+        focus_words = [w.strip(",.()").lower() for w in p["focus"].split() if len(w) > 5]
+        hits = sum(1 for w in set(focus_words) if w in text_lower)
+        if hits > 0:
+            precedent_matches.append({"treaty": p["treaty"], "hits": hits})
+    precedent_matches.sort(key=lambda x: -x["hits"])
+
+    # 4. Session relevance -- overlap with real events already tagged into the Article 4 Stress Test Log
+    a4_log = load_all()["article4_log"]
+    session_hits = 0
+    for e in a4_log:
+        title_words = [w.strip(".,()").lower() for w in e.get("title", "").split() if len(w) > 5]
+        session_hits += sum(1 for w in set(title_words) if w in text_lower)
+
+    # 5. Live OSINT pull -- this is what was missing: score_document previously never fetched
+    # current events at all, only checked already-tagged session history. Now it pulls fresh.
+    live_events = []
+    live_events_were_live = False
+    if live_query.strip():
+        live_events, live_events_were_live = fetch_osint(live_query.strip(), live_timespan)
+
+    # 6. Gap findings -- generated sentences connecting matched Articles to a strength/weakness
+    # assessment of THAT Article's own language, plus live events where they corroborate it.
+    # This is the actual answer to "is the language weak or strong" -- not just event presence.
+    gap_findings = []
+    for art in article_matches[:4]:
+        art_terms = [w.strip(".,()").lower() for w in art["summary"].split() if len(w) > 5]
+        matched_events = [e for e in live_events if any(t in e.get("title", "").lower() for t in art_terms)]
+        meta = ARTICLE_GAP_META.get(art["article"], {"strength": "UNRATED", "note": "No authored assessment on file for this Article."})
+        strength_tag = f"**[{meta['strength']}]**"
+        if matched_events:
+            titles = "; ".join(f'"{e["title"]}"' for e in matched_events[:2])
+            gap_findings.append(
+                f"**{art['article']}** {strength_tag} — {meta['note']} "
+                f"{len(matched_events)} live event(s) show this being tested right now: {titles}."
+            )
+        else:
+            gap_findings.append(
+                f"**{art['article']}** {strength_tag} — {meta['note']} "
+                f"No live event in this pull corroborates it, but the language assessment holds independent of current events."
+            )
+
+    # 7. Recommendations -- template-based, explicitly not AI-generated
+    recommendations = []
+    if covered_violations:
+        recommendations.append(
+            f"Consider an addendum clarifying consultation triggers for: {', '.join(covered_violations[:3])} — "
+            f"categories referenced in this document but not explicitly defined as consultation-worthy under current Article 4 language."
+        )
+    if live_events:
+        recommendations.append(
+            f"{len(live_events)} live event(s) were pulled for \"{live_query}\" ({'live GDELT data' if live_events_were_live else 'cached sample — GDELT unavailable in this environment'}). "
+            f"Cross-reference this document's provisions against those events before treating any Article match above as settled — treaty language should be tested against current activity, not historical precedent alone."
+        )
+    else:
+        recommendations.append("No live event context was pulled for this scoring — findings above reflect only the document's text against static reference tables. Add search terms to ground this against today's activity.")
+
+    # 8. Composite indicative score (0-100) -- NOT a legal or AI judgment, purely lexical overlap
+    fit_score = min(100, len(article_matches) * 6 + len(covered_violations) * 8 + len(precedent_matches) * 5 + min(session_hits, 10) * 2 + min(len(live_events), 5) * 2)
+
+    result = {
+        "title": doc_title, "ts": datetime.now().strftime("%Y-%m-%d %H:%M:%S"), "uploaded_by": callsign,
+        "excerpt": doc_text[:220], "fit_score": fit_score,
+        "article_matches": article_matches[:5], "covered_violations": covered_violations,
+        "precedent_matches": precedent_matches[:3], "session_hits": session_hits,
+        "live_query": live_query, "live_event_count": len(live_events),
+        "gap_findings": gap_findings, "recommendations": recommendations,
+    }
+    append_govlab_doc(result)
+    return result
+
+ADVERSARIAL_VECTORS = {
+    "infra": {"icon": "⊙", "label": "Critical Infrastructure", "sub": "Polar Connect Cable // Arctic LNG Pipeline // GPS-PNT",
+              "help": "The Polar Connect subsea cable, an Arctic LNG/oil pipeline, or GPS/PNT (positioning/navigation/timing) systems are interfered with or sabotaged."},
+    "disinfo": {"icon": "≈", "label": "Disinformation Op", "sub": "Sovereignty Narrative // IIC Vector",
+                "help": "Coordinated narrative campaign targeting Arctic sovereignty claims or alliance cohesion (IIC — Information Integrity Composite)."},
+    "auto": {"icon": "▣", "label": "Autonomous Systems", "sub": "Icebreaker UxV // Arctic Seabed ASI",
+             "help": "Unmanned icebreaker-class vessels (UxV) or autonomous seabed sensing infrastructure (ASI) probe or contest a boundary/asset."},
+    "energy": {"icon": "⚡", "label": "Energy Coercion", "sub": "Arctic LNG // Nordic Grid // Barents Oil",
+               "help": "Arctic LNG, Nordic grid interconnection, or Barents Sea oil leverage used as pressure against a Blue Team actor's energy dependence."},
+    "hybrid": {"icon": "⬡", "label": "Compound Hybrid", "sub": "Multi-Domain Arctic Pressure",
+               "help": "Two or more vectors occur together (e.g. cable interference + sovereignty narrative), designed to saturate Blue Team attention across the High North."},
+    "legal": {"icon": "⚖", "label": "Legal / Sovereignty", "sub": "Svalbard Article 9 // EEZ Boundary",
+              "help": "A grey-zone move that exploits treaty or legal ambiguity — e.g. Svalbard Treaty Article 9 demilitarization, or an Arctic EEZ boundary dispute — rather than a physical or cyber act."},
+}
+INTENSITY_LEVELS = {
+    "low": {"label": "LOW", "sub": "Deniable", "help": "Deniable activity, easily disputed attribution, minimal Cap Gap movement."},
+    "medium": {"label": "MEDIUM", "sub": "Below Art.4", "help": "Activity clearly below Article 4's plain threshold, but real and attributable."},
+    "high": {"label": "HIGH", "sub": "Approaching Art.4", "help": "Activity approaching what Article 4 language would plainly cover; consultation-worthy."},
+    "critical": {"label": "CRITICAL", "sub": "Cohesion Threat", "help": "Direct threat to alliance cohesion; the scenario most likely to force a Contested Table deadlock."},
+}
+ALL_BLUE_ACTORS = ["Norway", "Denmark/Greenland", "Finland", "Sweden", "Iceland", "Canada"]
+ALL_RED_ACTORS = ["Russia", "China"]
+
+DISPUTED_ARTIFACTS = {
+    "svalbard": {"label": "Svalbard Treaty — Article 9 Demilitarisation",
+                 "escalation": "RED TEAM — RUSSIA: Article 9 ambiguity cannot be resolved bilaterally. Counter-move: GRU-linked icebreaker enters disputed EEZ. NATO Capability Gap +5%. Mainsail (CMRE) flags anomalous trajectory — attribution MEDIUM. Blue Team window: T+4hrs.",
+                 "delta": 5},
+    "article5": {"label": "NATO Article 5 — Activation Threshold",
+                 "escalation": "RED TEAM — RUSSIA+CHINA: Article 5 threshold exploited. AI-generated content questioning Finnish commitment. IIC degradation: −8pts. Verdict: EXPLOIT. Cap Gap +7%.",
+                 "delta": 7},
+    "caofa": {"label": "CAOFA — Moratorium Extension",
+              "escalation": "RED TEAM — CHINA: CAOFA moratorium exploited as leverage. Conditional support for Polar Connect data sovereignty recognition. Warning: narrow scoping being weaponized.",
+              "delta": 5},
+    "minerals": {"label": "Greenland Critical Mineral Access",
+                 "escalation": "RED TEAM — CHINA: Greenland mineral access contested three-way. Chinese infrastructure investment offer. Cap Gap +9% NATO. Verdict: ESCALATE.",
+                 "delta": 9},
+}
+TRADE_ACTORS = ["Norway", "Denmark/Greenland", "Finland", "Iceland", "Canada", "United States"]
+TRADE_TYPES = ["Access", "Resource", "Narrative/Legal"]
+
+NARRATIVE_ASSESSMENTS = [
+    {"intent": "HIGH", "autonomy": "HIGH", "interaction": "MEDIUM", "governance": "HIGH",
+     "analysis": "Adversarial objective: fracture Nordic alliance solidarity via legal ambiguity. Primary seam: IIC gap between Iceland (42) and Norway (65).",
+     "foresight": "Joint Nordic attribution statement within T+4hrs."},
+    {"intent": "MEDIUM", "autonomy": "HIGH", "interaction": "HIGH", "governance": "MEDIUM",
+     "analysis": "Adversarial objective: normalize infrastructure access through economic framing rather than security framing, reducing Blue Team's ability to invoke Article 4 consultation.",
+     "foresight": "Pre-empt with a joint infrastructure-access transparency statement before the narrative gains traction."},
+    {"intent": "HIGH", "autonomy": "MEDIUM", "interaction": "MEDIUM", "governance": "HIGH",
+     "analysis": "Adversarial objective: exploit US–Greenland friction to widen the Denmark/Greenland seam already flagged as the theatre's most exposed concession point.",
+     "foresight": "Coordinate a US–Denmark joint statement reaffirming the existing sovereignty arrangement."},
+]
+
+# ══════════════════════════════════════════════════════════
+# GAME LOGIC
+# ══════════════════════════════════════════════════════════
+DEGRADATION_EVENTS = [
+    "IIC degradation — Iceland: −2pts.",
+    "Governance seam: Norway-Iceland IIC gap widened to 34pts.",
+    "CD stabilisation — Finland-Sweden protocol activated.",
+    "Kalman filter update: governance trajectory revised.",
+]
+
+def _clock_elapsed_seconds(state):
+    base = state.get("clock_elapsed_seconds", 0)
+    if state.get("clock_running") and state.get("clock_started_at"):
+        started = datetime.strptime(state["clock_started_at"], "%Y-%m-%d %H:%M:%S")
+        base += (datetime.now() - started).total_seconds()
+    return base
+
+def format_clock(seconds):
+    seconds = int(seconds)
+    hh, rem = divmod(seconds, 3600)
+    mm = rem // 60
+    return f"T+{hh:02d}:{mm:02d}"
+
+def clock_start():
+    data = load_all()
+    state = data["state"]
+    if not state.get("clock_running"):
+        state["clock_running"] = True
+        state["clock_started_at"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        data["state"] = state
+        save_all(data)
+
+def clock_stop():
+    data = load_all()
+    state = data["state"]
+    if state.get("clock_running"):
+        state["clock_elapsed_seconds"] = _clock_elapsed_seconds(state)
+        state["clock_running"] = False
+        state["clock_started_at"] = None
+        data["state"] = state
+        save_all(data)
+
+def clock_reset():
+    data = load_all()
+    state = data["state"]
+    state["clock_running"] = False
+    state["clock_started_at"] = None
+    state["clock_elapsed_seconds"] = 0
+    data["state"] = state
+    data["degradation_log"] = []
+    save_all(data)
+
+def maybe_add_degradation_events():
+    """Called on every page load. While the clock is running, checks how many 30-second
+    intervals have elapsed and backfills that many degradation events. Only actually ticks
+    forward when the page reruns (a click, or Live Mode's auto-refresh) -- no true
+    server-side background timer exists in Streamlit."""
+    data = load_all()
+    state = data["state"]
+    if not state.get("clock_running"):
+        return
+    elapsed = _clock_elapsed_seconds(state)
+    expected_events = int(elapsed // 30)
+    current_events = len(data.get("degradation_log", []))
+    if expected_events > current_events:
+        for _ in range(expected_events - current_events):
+            data.setdefault("degradation_log", []).append({
+                "time": format_clock(elapsed), "text": random.choice(DEGRADATION_EVENTS)
+            })
+        save_all(data)
+
+def load_degradation_log():
+    return list(reversed(load_all().get("degradation_log", [])))
+
+def build_orion_export():
+    data = load_all()
+    state = data["state"]
+    export = {
+        "export_timestamp": datetime.now().isoformat(),
+        "turn": state["turn"],
+        "master_cap_gap": state["cap_gap"],
+        "domains": state["domains"],
+        "concession_modifier": state.get("concession_modifier", 0),
+        "narrative_modifier": state.get("narrative_modifier", 0),
+        "doctrine": state.get("doctrine"),
+        "treaty_flag": state.get("treaty_flag"),
+        "win_win_active": state.get("win_win_active"),
+        "scenario": {
+            "name": state.get("scenario_name"), "description": state.get("scenario_desc"),
+            "adversarial_vector": state.get("adversarial_vector"), "intensity": state.get("intensity"),
+            "blue_actors": state.get("blue_actors"), "red_actors": state.get("red_actors"),
+        },
+        "decision_velocity": compute_decision_velocity(),
+        "gap_events": [e for e in data.get("log", []) if e.get("cap_gap_delta")],
+        "concession_count": len([e for e in data.get("log", []) if "CONCESSION" in e.get("move_type", "")]),
+        "arbitration_cases": data.get("arbitration", []),
+        "article4_log": data.get("article4_log", []),
+        "degradation_log": data.get("degradation_log", []),
+    }
+    return json.dumps(export, indent=2)
+
+# ══════════════════════════════════════════════════════════
+# DECISION VELOCITY — supports the "WinterStorm2030 helps NATO act faster" positioning.
+# Two numbers, both derived from real timestamps already in the shared log, not asserted:
+#   1. Average human response time to an Agentic AI Red Team move (Observe -> Act)
+#   2. Average time between any two consecutive logged actions (overall session tempo)
+# ══════════════════════════════════════════════════════════
+def compute_decision_velocity():
+    log = load_all().get("log", [])
+    if len(log) < 2:
+        return {"avg_response_seconds": None, "avg_tempo_seconds": None, "n_responses": 0, "n_actions": len(log)}
+    try:
+        entries = sorted(log, key=lambda e: e.get("ts", ""))
+    except Exception:
+        entries = log
+
+    response_times = []
+    for i, e in enumerate(entries):
+        if e.get("callsign") == "Agentic AI":
+            for e2 in entries[i + 1:]:
+                if e2.get("callsign") != "Agentic AI":
+                    try:
+                        t1 = datetime.strptime(e["ts"], "%Y-%m-%d %H:%M:%S")
+                        t2 = datetime.strptime(e2["ts"], "%Y-%m-%d %H:%M:%S")
+                        response_times.append((t2 - t1).total_seconds())
+                    except Exception:
+                        pass
+                    break
+
+    tempo_deltas = []
+    for i in range(1, len(entries)):
+        try:
+            t1 = datetime.strptime(entries[i - 1]["ts"], "%Y-%m-%d %H:%M:%S")
+            t2 = datetime.strptime(entries[i]["ts"], "%Y-%m-%d %H:%M:%S")
+            tempo_deltas.append((t2 - t1).total_seconds())
+        except Exception:
+            pass
+
+    avg_response = sum(response_times) / len(response_times) if response_times else None
+    avg_tempo = sum(tempo_deltas) / len(tempo_deltas) if tempo_deltas else None
+    return {"avg_response_seconds": avg_response, "avg_tempo_seconds": avg_tempo,
+            "n_responses": len(response_times), "n_actions": len(entries)}
+
+def format_duration(seconds):
+    if seconds is None:
+        return "N/A — not enough data yet"
+    seconds = int(seconds)
+    if seconds < 60:
+        return f"{seconds}s"
+    mm, ss = divmod(seconds, 60)
+    if mm < 60:
+        return f"{mm}m {ss}s"
+    hh, mm = divmod(mm, 60)
+    return f"{hh}h {mm}m"
+
+def recompute_cap_gap(state):
+    domains = state.get("domains", [])
+    domain_avg = round(sum(d["gap"] for d in domains) / len(domains)) if domains else 50
+    gap = domain_avg + int(state.get("concession_modifier", 0)) + int(state.get("narrative_modifier", 0))
+    gap = max(0, min(100, gap))
+    state["cap_gap"] = gap
+    treaty = bool(state.get("treaty_flag", False))
+    state["win_win_active"] = bool(gap < 45 and treaty)
+    return state
+
+def evaluate_secondary_objectives(state):
+    """Returns {objective_key: bool_met} for whichever secondary objectives were selected."""
+    results = {}
+    for key in state.get("secondary_objectives", []):
+        if key == "cohesion":
+            results[key] = state.get("alliance_cohesion", 0) >= 60
+        elif key == "svalbard":
+            results[key] = not state.get("red_svalbard_flag", False)
+        elif key == "declaration":
+            results[key] = len(state.get("declaration_signatories", [])) >= 3
+    return results
+
+def check_game_status(state):
+    """Real win/loss, not just a passive Win-Win banner. Checked after every action that
+    changes Cap Gap or advances the turn. Once game_over is set it stays set -- the mission
+    doesn't silently un-resolve if the Cap Gap wobbles back down after a loss."""
+    if state.get("game_over"):
+        return state
+    if not state.get("primary_objective"):
+        return state  # no scenario configured yet, nothing to evaluate
+
+    if state["cap_gap"] >= 75:
+        state["game_over"] = True
+        state["game_result"] = "LOSS"
+        state["game_result_text"] = (
+            f"NATO Article 4 has been invoked at Turn {state['turn']} — the Cap Gap reached {state['cap_gap']}%, "
+            f"past the 75% escalation threshold. Primary objective failed."
+        )
+        return state
+
+    if state["turn"] > TURN_LIMIT:
+        primary = state.get("primary_objective")
+        if primary == "prevent_article4":
+            primary_met = state["cap_gap"] < 75
+        elif primary == "stabilize_theatre":
+            primary_met = state["cap_gap"] < 45
+        else:
+            primary_met = False
+        sec_results = evaluate_secondary_objectives(state)
+        sec_met = sum(1 for v in sec_results.values() if v)
+        sec_total = len(sec_results)
+
+        state["game_over"] = True
+        if primary_met and sec_met == sec_total:
+            state["game_result"] = "WIN"
+            state["game_result_text"] = f"All objectives achieved within {TURN_LIMIT} turns — primary objective met, {sec_met}/{sec_total} secondary objectives met."
+        elif primary_met:
+            state["game_result"] = "PARTIAL"
+            state["game_result_text"] = f"Primary objective met, but only {sec_met}/{sec_total} secondary objectives were achieved by Turn {TURN_LIMIT}."
+        else:
+            state["game_result"] = "LOSS"
+            state["game_result_text"] = f"Primary objective not achieved within {TURN_LIMIT} turns. {sec_met}/{sec_total} secondary objectives met."
+    return state
+
+def adjust_domain(domain_idx, delta, is_red, callsign):
+    state = load_state()
+    domains = state["domains"]
+    domains[domain_idx]["gap"] = max(0, min(100, domains[domain_idx]["gap"] + (delta if is_red else -delta)))
+    state = recompute_cap_gap(state)
+    state = check_game_status(state)
+    save_state(state)
+    append_log(state["turn"], callsign, domains[domain_idx]["name"],
+               "RED EXPLOIT" if is_red else "BLUE CLOSE", "ANALYST",
+               f"{domains[domain_idx]['name']} {'+' if is_red else '-'}{delta}", delta if is_red else -delta)
+    return state
+
+def trigger_concession(actor, ctype, desc, callsign, is_red, source="ANALYST"):
+    state = load_state()
+    type_delta = {"Access": 4, "Resource": 3, "Narrative-Legal": 2}
+    delta = type_delta.get(ctype, 3)
+    mod = int(state.get("concession_modifier", 0)) + (delta if is_red else -delta)
+    state["concession_modifier"] = max(-20, min(20, mod))
+    if ctype == "Narrative-Legal" and not is_red:
+        state["treaty_flag"] = True
+
+    if is_red:
+        # Red action degrades cohesion; flag a permanent Svalbard loss if it's a Svalbard-flavored move
+        state["alliance_cohesion"] = max(0, min(100, state.get("alliance_cohesion", 65) - 3))
+        if "svalbard" in (actor + " " + desc).lower():
+            state["red_svalbard_flag"] = True
+    else:
+        # Blue action: small cohesion reward now, but a real cost -- it raises the next Red move.
+        # This is the actual trade-off: acting has a price, not just a benefit.
+        cohesion_gain = 2 if ctype == "Narrative-Legal" else 1
+        state["alliance_cohesion"] = max(0, min(100, state.get("alliance_cohesion", 65) + cohesion_gain))
+        state["provocation"] = min(15, state.get("provocation", 0) + 3)
+        state["last_blue_action_type"] = ctype
+        if ctype == "Narrative-Legal":
+            signatories = state.get("declaration_signatories", [])
+            if actor not in signatories:
+                signatories.append(actor)
+            state["declaration_signatories"] = signatories
+
+    state = recompute_cap_gap(state)
+    state = check_game_status(state)
+    save_state(state)
+    append_log(state["turn"], callsign, actor, f"CONCESSION — {ctype}", source, desc, delta if is_red else -delta)
+    return state
+
+def run_cogwar_analysis(doctrine, narrative_text, callsign):
+    state = load_state()
+    state["doctrine"] = doctrine
+    assessment = COGWAR_ASSESSMENTS.get(doctrine, COGWAR_ASSESSMENTS["rus"])
+    mod = int(state.get("narrative_modifier", 0)) + round((assessment["governance"] - 50) / 6)
+    state["narrative_modifier"] = max(-15, min(15, mod))
+    state = recompute_cap_gap(state)
+    state = check_game_status(state)
+    save_state(state)
+    append_log(state["turn"], callsign, DOCTRINE_LABELS.get(doctrine, doctrine),
+               "COGNITIVE WARFARE ANALYSIS", "SIMULATED",
+               f"Narrative: \"{narrative_text[:120]}\" — {assessment['analysis']}", 0)
+    return state, assessment
+
+def run_narrative_analysis(narrative_text, callsign):
+    """IAIG Narrative Analysis Engine — doctrine-independent, HIGH/MEDIUM/LOW output.
+    Rules-based (no live LLM call), same security posture as everything else here.
+    Picks a template using a simple keyword heuristic on the input, for texture rather
+    than always returning the identical canned line."""
+    text_lower = narrative_text.lower()
+    if "greenland" in text_lower or "denmark" in text_lower:
+        assessment = NARRATIVE_ASSESSMENTS[2]
+    elif "infrastructure" in text_lower or "invest" in text_lower or "economic" in text_lower:
+        assessment = NARRATIVE_ASSESSMENTS[1]
+    else:
+        assessment = NARRATIVE_ASSESSMENTS[0]
+
+    state = load_state()
+    label_delta = {"HIGH": 4, "MEDIUM": 1, "LOW": -3}
+    mod = int(state.get("narrative_modifier", 0)) + label_delta.get(assessment["governance"], 2)
+    state["narrative_modifier"] = max(-15, min(15, mod))
+    state = recompute_cap_gap(state)
+    save_state(state)
+    append_log(state["turn"], callsign, "IAIG Narrative Analysis Engine",
+               "NARRATIVE ANALYSIS", "SIMULATED",
+               f"Narrative: \"{narrative_text[:120]}\" — {assessment['analysis']}", 0)
+    return state, assessment
+
+# ══════════════════════════════════════════════════════════
+# CONTESTED NEGOTIATION TABLE — a separate resolution path from the Arbitration Track.
+# Single shared table (one dispute at a time, matching the HTML build), with a
+# Deadlock Protocol that flags when a Denmark/Greenland Access concession fires.
+# ══════════════════════════════════════════════════════════
+def generate_scenario(name, desc, doctrine, vector, intensity, blue_actors, red_actors, primary_objective, secondary_objectives):
+    state = load_state()
+    state["scenario_name"] = name
+    state["scenario_desc"] = desc
+    state["doctrine"] = doctrine
+    state["adversarial_vector"] = vector
+    state["intensity"] = intensity
+    state["blue_actors"] = blue_actors
+    state["red_actors"] = red_actors
+    state["scenario_active"] = True
+    state["primary_objective"] = primary_objective
+    state["secondary_objectives"] = secondary_objectives
+    state["alliance_cohesion"] = 65
+    state["red_svalbard_flag"] = False
+    state["declaration_signatories"] = []
+    state["provocation"] = 0
+    state["last_blue_action_type"] = None
+    state["game_over"] = False
+    state["game_result"] = None
+    state["game_result_text"] = ""
+    state["turn"] = 1
+    save_state(state)
+    return state
+
+def restart_mission():
+    """Resets turn/game state back to Turn 1 for a fresh playthrough of the SAME scenario
+    configuration -- doesn't make you re-fill Scenario Setup. Clears the move log, arbitration
+    cases, and contested table (tied to this specific playthrough) but keeps the OSINT Article 4
+    log, Governance Lab documents, and calibration log, which are standing reference artifacts
+    rather than one playthrough's game state."""
+    data = load_all()
+    state = data["state"]
+    state["turn"] = 1
+    state["concession_modifier"] = 0
+    state["narrative_modifier"] = 0
+    state["treaty_flag"] = False
+    state["win_win_active"] = False
+    state["alliance_cohesion"] = 65
+    state["red_svalbard_flag"] = False
+    state["declaration_signatories"] = []
+    state["provocation"] = 0
+    state["last_blue_action_type"] = None
+    state["game_over"] = False
+    state["game_result"] = None
+    state["game_result_text"] = ""
+    state["turn_action_taken"] = False
+    state["clock_running"] = False
+    state["clock_started_at"] = None
+    state["clock_elapsed_seconds"] = 0
+    state["domains"] = [
+        {"name": DOMAIN_NAMES[0], "gap": 61},
+        {"name": DOMAIN_NAMES[1], "gap": 70},
+        {"name": DOMAIN_NAMES[2], "gap": 58},
+        {"name": DOMAIN_NAMES[3], "gap": 72},
+        {"name": DOMAIN_NAMES[4], "gap": 59},
+    ]
+    state = recompute_cap_gap(state)
+    data["state"] = state
+    data["log"] = []
+    data["arbitration"] = []
+    data["contested_table"] = {"status": "CLOSED", "artifact": None, "trades": {}, "escalation_text": "", "escalation_run": False, "opened_by": ""}
+    data["degradation_log"] = []
+    save_all(data)
+    return state
+
+def open_contested_table(artifact_key, callsign):
+    data = load_all()
+    data["contested_table"] = {"status": "OPEN", "artifact": artifact_key, "trades": {}, "escalation_text": "", "escalation_run": False, "opened_by": callsign}
+    save_all(data)
+    append_log(data["state"]["turn"], callsign, "Negotiation Table",
+               "TABLE OPENED", "ANALYST", f"Dispute opened: {DISPUTED_ARTIFACTS[artifact_key]['label']}", 0)
+
+def set_trade(actor, ttype):
+    data = load_all()
+    data["contested_table"]["trades"][actor] = ttype
+    save_all(data)
+
+def run_table_escalation(callsign):
+    data = load_all()
+    ct = data["contested_table"]
+    art = DISPUTED_ARTIFACTS.get(ct["artifact"], {"escalation": "RED TEAM — COMPOUND: Concession asymmetry detected. Cap Gap +6%.", "delta": 6})
+    ct["escalation_text"] = art["escalation"]
+    ct["escalation_run"] = True
+    data["contested_table"] = ct
+    state = data["state"]
+    state["concession_modifier"] = max(-20, min(20, int(state.get("concession_modifier", 0)) + art["delta"]))
+    state = recompute_cap_gap(state)
+    data["state"] = state
+    save_all(data)
+    append_log(state["turn"], callsign, "Negotiation Table",
+               "RED ESCALATION", "SIMULATED", art["escalation"], art["delta"])
+    return state
+
+def log_table_resolution(callsign):
+    data = load_all()
+    ct = data["contested_table"]
+    trades = ct.get("trades", {})
+    state = data["state"]
+    if any(t == "Narrative/Legal" for t in trades.values()):
+        state["treaty_flag"] = True
+    state["concession_modifier"] = max(-20, min(20, int(state.get("concession_modifier", 0)) - 2))
+    state = recompute_cap_gap(state)
+    trade_summary = ", ".join(f"{a}:{t}" for a, t in trades.items()) or "No trades selected"
+    artifact_label = DISPUTED_ARTIFACTS.get(ct["artifact"], {}).get("label", ct.get("artifact") or "Unknown")
+    data["state"] = state
+    data["contested_table"] = {"status": "CLOSED", "artifact": None, "trades": {}, "escalation_text": "", "escalation_run": False, "opened_by": ""}
+    save_all(data)
+    append_log(state["turn"], callsign, "Negotiation Table",
+               "RESOLUTION", "ANALYST", f"Resolution — {artifact_label}. Trades: {trade_summary}", -2)
+    return state
+
+# ══════════════════════════════════════════════════════════
+# OSINT FEED — GDELT Project, no API key, no LLM call
+# Server-side request from Streamlit, so no browser CORS concerns at all.
+# ══════════════════════════════════════════════════════════
+def fetch_osint(query, timespan):
+    url = "https://api.gdeltproject.org/api/v2/doc/doc"
+    params = {"query": query, "mode": "artlist", "maxrecords": 15, "format": "json", "timespan": timespan}
+    try:
+        resp = requests.get(url, params=params, timeout=10)
+        resp.raise_for_status()
+        articles = resp.json().get("articles", [])
+        if not articles:
+            raise ValueError("empty")
+        return [{"title": a.get("title", ""), "domain": a.get("domain", ""), "seendate": a.get("seendate", ""),
+                  "url": a.get("url", ""), "tone": a.get("tone")} for a in articles], True
+    except Exception:
+        fallback = {
+            "arctic": [
+                {"title": "Norway tracks unidentified vessel activity near Svalbard fishing protection zone", "domain": "highnorthnews.com", "seendate": "20260703T090000Z", "tone": -3.2, "url": ""},
+                {"title": "NATO allies discuss undersea cable protection after Baltic incidents", "domain": "reuters.com", "seendate": "20260706T110000Z", "tone": -4.1, "url": ""},
+                {"title": "China-flagged research vessel logged near Northern Sea Route", "domain": "thebarentsobserver.com", "seendate": "20260709T160000Z", "tone": -2.6, "url": ""},
+            ],
+            "hormuz": [
+                {"title": "IRGC boards and briefly detains commercial tanker transiting Strait of Hormuz", "domain": "reuters.com", "seendate": "20260702T070000Z", "tone": -6.1, "url": ""},
+                {"title": "GPS spoofing incidents reported by multiple vessels near Hormuz shipping lanes", "domain": "maritime-executive.com", "seendate": "20260704T120000Z", "tone": -4.4, "url": ""},
+            ],
+        }
+        key = "hormuz" if "hormuz" in query.lower() else "arctic"
+        return fallback[key], False
+
+RESPONSE_KEYWORDS = {
+    "Narrative-Legal": ["narrative", "influence", "content", "sovereignty", "doubt"],
+    "Access": ["vessel", "signal", "interference", "icebreaker", "station"],
+    "Resource": ["mineral", "investment", "offer", "leverage", "infrastructure"],
+}
+
+def generate_ai_move(state):
+    """Responsive, not pure random: biases toward a move that counters the type of Blue's
+    last action (a diplomatic move draws a narrative response; an access move draws an
+    infrastructure/vessel response), and applies the provocation cost Blue's trade-off
+    banked up -- acting now genuinely makes the next Red move bigger."""
+    doctrine = state.get("doctrine", "rus")
+    pool = RED_MOVE_LIBRARY.get(doctrine, RED_MOVE_LIBRARY["rus"])
+    last_type = state.get("last_blue_action_type")
+    keywords = RESPONSE_KEYWORDS.get(last_type, [])
+    matched = [m for m in pool if any(kw in (m["title"] + " " + m["desc"]).lower() for kw in keywords)]
+    move = dict(random.choice(matched or pool))
+
+    provocation = state.get("provocation", 0)
+    if provocation:
+        move["delta"] = move["delta"] + provocation
+        move["desc"] = move["desc"] + f" (Amplified +{provocation} — a direct response to your last move.)"
+        state["provocation"] = 0
+
+    mod = int(state.get("narrative_modifier", 0)) + move["delta"]
+    state["narrative_modifier"] = max(-15, min(15, mod))
+
+    tag_penalty = {"ESCALATE": 5, "EXPLOIT": 3, "PROBE": 1}
+    state["alliance_cohesion"] = max(0, min(100, state.get("alliance_cohesion", 65) - tag_penalty.get(move["tag"], 1)))
+    if "svalbard" in (move["title"] + " " + move["desc"]).lower() and move["tag"] == "ESCALATE":
+        state["red_svalbard_flag"] = True
+    return state, move
+
+def end_turn(callsign):
+    state = load_state()
+    state, move = generate_ai_move(state)
+    state = recompute_cap_gap(state)
+    state["turn"] = int(state["turn"]) + 1
+    state["turn_action_taken"] = False
+    state = check_game_status(state)
+    save_state(state)
+    append_log(state["turn"], "Agentic AI", DOCTRINE_LABELS.get(state["doctrine"], state["doctrine"]),
+               f"{move['tag']} — {move['title']}", "SIMULATED", move["desc"], move["delta"])
+    return state, move
+
+def advance_arbitration(row):
+    new_stage = int(row["stage"]) + 1
+    update_arbitration(row["id"], {"stage": new_stage})
+    state = load_state()
+    if new_stage == 3:
+        state["concession_modifier"] = max(-20, min(20, int(state.get("concession_modifier", 0)) - 1))
+    elif new_stage == 2:
+        state["concession_modifier"] = max(-20, min(20, int(state.get("concession_modifier", 0)) + 1))
+    state = recompute_cap_gap(state)
+    save_state(state)
+
+def issue_ruling(row, callsign):
+    rulings = [
+        {"ruling": "FOR BLUE", "delta": -6, "summary": "The Tribunal finds the violation substantiated. The responsible party shall cease the conduct and provide notification assurances going forward."},
+        {"ruling": "SPLIT", "delta": -3, "summary": "The Tribunal finds the violation substantiated in part. Continuity of operations is affirmed; both parties shall provide notification going forward."},
+        {"ruling": "FOR RED", "delta": 2, "summary": "The Tribunal finds insufficient evidence to substantiate the claim as framed. Continuity of operations affirmed without further remedy."},
+    ]
+    result = random.choice(rulings)
+    state = load_state()
+    state["concession_modifier"] = max(-20, min(20, int(state.get("concession_modifier", 0)) + result["delta"]))
+    state["treaty_flag"] = True
+    if "svalbard" in row.get("asset", "").lower() and result["ruling"] == "FOR RED":
+        state["red_svalbard_flag"] = True
+    state = recompute_cap_gap(state)
+    state = check_game_status(state)
+    save_state(state)
+    update_arbitration(row["id"], {"status": f"CLOSED — {result['ruling']}"})
+    append_log(state["turn"], "Arbitration Tribunal", f"{row['violation']} vs {row['asset']}",
+               f"BINDING RULING — {result['ruling']}", "ARBITRATION", result["summary"], result["delta"])
+
+# ══════════════════════════════════════════════════════════
+# LOGIN GATE
+# ══════════════════════════════════════════════════════════
+if "authenticated" not in st.session_state:
+    st.session_state["authenticated"] = False
+
+if not st.session_state["authenticated"]:
+    st.markdown("""
+    <div class="ws-hero">
+      <div class="ws-kicker">Auracelle AI Governance Labs · NATO Arctic High North Decision Environment</div>
+      <div class="ws-title">WINTERSTORM<span style="color:#7ae7f4">2030</span></div>
+      <div class="ws-subtitle">WinterStorm2030 measures the gap between grey-zone activity and NATO's Article 4/5 thresholds — scoring how urgent a decision is, and stress-testing where existing NATO policy has no clear answer. It draws on real-time OSINT event data and historical treaty precedent (including the 1949 North Atlantic Treaty and comparative grey-zone/infrastructure-dispute analogues) to build an evidence-grounded case toward a potential recommendation — not a combat simulator.</div>
+      <div class="ws-badges">
+        <span class="ws-badge">NATO ARCTIC HIGH NORTH</span>
+        <span class="ws-badge">ARTICLE 4/5 GAP SCORING</span>
+        <span class="ws-badge">AGENTIC AI RED TEAM</span>
+        <span class="ws-badge">CONTESTED NEGOTIATION TABLE</span>
+        <span class="ws-badge">ASYNCHRONOUS MULTIPLAYER</span>
+      </div>
+    </div>
+    <div class="ws-feature-grid">
+      <div class="ws-feature"><strong>Strategic Purpose</strong>Score the urgency of a decision at the seam between grey-zone activity and NATO's Article 4/5 consultation threshold.</div>
+      <div class="ws-feature"><strong>Evidence Base</strong>Every score, gap, and finding traces back to real-time OSINT data or historical treaty precedent — not assumption. Where that evidence provides is for the reviewing body to decide.</div>
+      <div class="ws-feature"><strong>Operational Logic</strong>Trade concessions, counter narratives, calibrate domain gaps, and work disputes before they cascade into strategic failure.</div>
+      <div class="ws-feature"><strong>Shared Environment</strong>Persistent state, shared move history, and asynchronous access support distributed participation over time.</div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    with st.form("login_form"):
+        callsign_input = st.text_input("Callsign")
+        access_code = st.text_input("Access Code", type="password")
+
+        st.markdown("<div class='ws-section-label'>Secure Participant Access</div>", unsafe_allow_html=True)
+        st.markdown(
+            "<div class='ws-callout'><strong>Governance capacity instrument</strong> — not a combat simulator. "
+            "WinterStorm2030 measures how policy, institutional capacity, alliance cohesion, concessions, "
+            "narratives, and grey-zone actions alter the live NATO Capability Gap, and where that gap exposes "
+            "shortfalls in current NATO treaty language that a 2030 addendum could address.</div>",
+            unsafe_allow_html=True,
+        )
+        st.caption("Shared persistent state · Concession Engine · Agentic AI Red Team · arbitration ladder · live composite scoring")
+        submit = st.form_submit_button("🚀 Launch WinterStorm2030")
+
+    if submit:
+        if access_code == "WinterStorm2030!":
+            st.session_state["authenticated"] = True
+            st.session_state["callsign"] = callsign_input or "PARTICIPANT"
+            st.rerun()
+        else:
+            st.error("Access denied — verify the session access code and try again.")
+    st.stop()
+
+# ══════════════════════════════════════════════════════════
+# UI — only reached once authenticated
+# ══════════════════════════════════════════════════════════
+callsign = st.session_state.get("callsign", "PARTICIPANT")
+
+live_mode = st.toggle("🔴 Live Mode — auto-refresh every 15s (for a facilitated synchronous session)", value=False)
+if live_mode:
+    st_autorefresh(interval=15000, key="live_refresh_tick")
+    st.caption("Live Mode is on — this page refreshes itself every 15 seconds. Turn it off for async solo play to avoid unnecessary requests.")
+
+state = load_state()
+posture, posture_class = capability_posture(state["cap_gap"])
+scenario_label = state.get("scenario_name") or "Scenario awaiting configuration"
+last_ai_move = get_last_ai_move()
+last_move_str = f"{last_ai_move['move_type']}" if last_ai_move else "No AI moves yet"
+
+with st.sidebar:
+    render_move_feed()
+
+st.markdown("<div class='ws-section-label'>High North Command Overview</div>", unsafe_allow_html=True)
+st.markdown(f"""
+<div class="ws-hero">
+  <div class="ws-kicker">NATO STO SAS-219 · High North Scenarios for Wargaming & Analysis</div>
+  <div class="ws-title" style="font-size:2.85rem">WINTERSTORM<span style="color:#7ae7f4">2030</span></div>
+  <div class="ws-subtitle"><strong style="color:#edf7fa">{scenario_label}</strong><br>Governance capacity · grey-zone competition · strategic concession analysis · alliance resilience decision-testing across the Arctic High North.</div>
+</div>
+""", unsafe_allow_html=True)
+
+st.markdown("<div class='ws-section-label'>ℹ️ Instructions</div>", unsafe_allow_html=True)
+icol1, icol2 = st.columns(2)
+with icol1:
+    with st.expander("🎮 Game Instructions", expanded=False):
+        st.markdown("""
+**How to play, step by step**
+1. **Configure the scenario** in Scenario Setup — name it, set the doctrine, pick an Adversarial Vector, set Intensity, choose Blue and Red actors — then click **Execute Players Move**.
+2. **Take your move.** Trigger a Concession, run a Cognitive Warfare or Narrative Analysis, tag an OSINT event, or open an Arbitration case — any of these count as your move for the turn.
+3. **Click End Turn.** This generates the Agentic AI's Red Team move for the current doctrine and advances the session to the next turn.
+4. **Read the Turn Recommendation** that appears after the AI moves — it suggests where to look next based on what the AI just did.
+5. **Repeat.** Watch the NATO Capability Gap and the Win-Win banner — if the gap drops below 45% with a treaty/legal concession logged, a cooperative resolution is on the table.
+6. **Playing with others?** Everyone shares the same session state. Check the presence indicator to see who else is online, and the Players Shared Move Feed (sidebar) to see everyone's actions as they happen.
+
+**Reading the prompts**
+- 🎯 Blue banner = it's your move, nothing logged yet this turn.
+- ✅ Green banner = your move is logged, End Turn whenever you're ready.
+        """)
+with icol2:
+    with st.expander("🏗️ Architecture Guide", expanded=False):
+        st.markdown("""
+**Architecture highlights**
+- **Concession Engine** — Access / Resource / Narrative-Legal, per-actor thresholds, Deadlock Protocol
+- **Contested Negotiation Table** — a separate trade-based resolution path from the Arbitration Track
+- **Cognitive Warfare & Narrative Analysis** — two distinct doctrine-based assessment engines (Decision-Support only)
+- **NATO Cap Gap** — five-domain composite, every tab writes to the same shared number
+- **OSINT Feed** — real GDELT event data, no LLM call, with a Strait of Hormuz calibration baseline
+- **Governance Lab** — upload/paste a treaty or policy for rules-based scoring against NATO doctrine
+
+**Navigation guide**
+| Tab | Use it for |
+|---|---|
+| Scenario Setup | Configure vector, intensity, actors, doctrine — start here |
+| Actor Analysis | Static baseline reference across all six Blue actors |
+| Concession Engine | Trigger concessions; live per-actor threshold status |
+| NATO Cap Gap | Composite score + five-domain breakdown |
+| Dynamic Governance Tracking | Scenario clock + live IIC/CD/Cap Gap state |
+| OSINT Feed | Real event data, tag into Concession Engine or Article 4 log |
+| Cognitive Warfare | Numeric doctrine-based narrative scoring |
+| Narrative Analysis | HIGH/MEDIUM/LOW categorical narrative read |
+| Arbitration Track | 5-stage standing escalation ladder |
+| Governance Lab | Upload a document for treaty/precedent scoring |
+        """)
+
+
+render_briefing_panel(state, callsign, posture, posture_class)
+
+render_mission_status(state)
+render_winwin_banner(state)
+
+st.markdown("<div class='ws-section-label'>Operational Status</div>", unsafe_allow_html=True)
+c1, c2, c3, c4 = st.columns(4)
+c1.metric("Current Turn", state["turn"], help="Shared simulation turn visible to all participants.")
+c2.metric("NATO Capability Gap", f"{state['cap_gap']}%", help="Lower scores indicate a smaller capability gap and stronger collective resilience.")
+c3.metric("Adversary Doctrine", DOCTRINE_LABELS.get(state.get("doctrine", "rus"), "—"), help="Doctrine governing Agentic AI Red Team behavior.")
+c4.metric("Negotiated Stability", "ACHIEVED" if state.get("win_win_active") else "NOT YET", help="Achieved below a 45% gap with an active treaty/legal mechanism.")
+st.markdown(f"<div class='ws-status'><span class='ws-dot'></span> Shared state online &nbsp;·&nbsp; Capability posture: <strong class='{posture_class}'>{posture}</strong> &nbsp;·&nbsp; Concession modifier: {state.get('concession_modifier',0):+d} &nbsp;·&nbsp; Narrative pressure: {state.get('narrative_modifier',0):+d}</div>", unsafe_allow_html=True)
+
+render_presence_panel(callsign)
+
+def render_turn_status_banner(state):
+    recs = generate_turn_recommendation(state)
+    recs_html = " &nbsp;·&nbsp; ".join(f"<strong style='color:#3fa9ff;'>{tab}</strong> — {tip}" for tab, tip in recs)
+    if state.get("turn_action_taken"):
+        st.markdown(
+            f"<div style='border:1px solid var(--green);border-left:4px solid var(--green);border-radius:12px;padding:.7rem 1rem;background:rgba(140,232,177,.08);color:var(--ice);margin:.6rem 0;'>"
+            f"✅ <strong style='color:var(--green);'>Move logged for Turn {state['turn']}.</strong> Ready to End Turn when you are — that will generate the next Red Team move and advance to Turn {state['turn']+1}."
+            f"<div style='margin-top:.5rem;font-size:.85rem;'>🧭 <strong>Turn Recommendation:</strong> {recs_html}</div></div>",
+            unsafe_allow_html=True)
+    else:
+        st.markdown(
+            f"<div style='border:1px solid #3fa9ff;border-left:4px solid #3fa9ff;border-radius:12px;padding:.7rem 1rem;background:rgba(63,169,255,.08);color:var(--ice);margin:.6rem 0;'>"
+            f"🎯 <strong style='color:#3fa9ff;'>It's your move — Turn {state['turn']}.</strong> "
+            f"End Turn always works, but nothing else has happened yet this turn."
+            f"<div style='margin-top:.5rem;font-size:.85rem;'>🧭 <strong>Turn Recommendation:</strong> {recs_html}</div></div>",
+            unsafe_allow_html=True)
+
+render_turn_status_banner(state)
+
+st.divider()
+
+st.markdown("<div class='ws-section-label'>Decision Environment</div>", unsafe_allow_html=True)
+mode = st.segmented_control(
+    "Mode",
+    ["◆ Decision-Maker (breadth — act on it)", "◇ Decision-Support (full depth — including Arbitration Track)"],
+    default="◇ Decision-Support (full depth — including Arbitration Track)",
+    key="dm_ds_mode",
+)
+if mode is None:
+    mode = "◇ Decision-Support (full depth — including Arbitration Track)"
+is_dm = mode.startswith("◆")
+if is_dm:
+    st.caption("Decision-Maker mode: the Arbitration Track (a procedural escalation ladder), Cognitive Warfare, Narrative Analysis, and Governance Lab are hidden. "
+               "Scenario Setup is editable in both modes. Switch to Decision-Support for the full depth toolkit.")
+
+st.markdown(f"""
+<div class='ws-mode-note'>
+  <div class='ws-status'><span class='ws-dot'></span> <strong style='color:#edf7fa'>Active mode:</strong> {mode} &nbsp;·&nbsp; <strong style='color:#edf7fa'>Current posture:</strong> <span class='{posture_class}'>{posture}</span> &nbsp;·&nbsp; <strong style='color:#edf7fa'>Concession modifier:</strong> {modifier_text(state.get('concession_modifier',0))} &nbsp;·&nbsp; <strong style='color:#edf7fa'>Narrative pressure:</strong> {modifier_text(state.get('narrative_modifier',0))}</div>
+</div>
+""", unsafe_allow_html=True)
+
+tab_names = ["📋 Scenario Setup", "🧑‍🤝‍🧑 Actor Analysis", "🤝 Concession Engine", "📡 NATO Cap Gap",
+             "📈 Dynamic Governance Tracking", "🛰️ OSINT Feed"]
+if not is_dm:
+    tab_names += ["🧠 Cognitive Warfare", "🗞️ Narrative Analysis", "⚖ Arbitration Track", "📚 Governance Lab"]
+tabs = st.tabs(tab_names)
+
+tab_scenario, tab_actors, tab_concession, tab_capgap, tab_dgt, tab_osint = tabs[0], tabs[1], tabs[2], tabs[3], tabs[4], tabs[5]
+if not is_dm:
+    tab_cogwar = tabs[6]
+    tab_narrative = tabs[7]
+    tab_arbitration = tabs[8]
+    tab_govlab = tabs[9]
+
+with tab_scenario:
+    st.markdown("<div class='ws-section-label'>Scenario & Doctrine Configuration</div>", unsafe_allow_html=True)
+
+    st.markdown(f"**Step 00 — Mission Objective** &nbsp; *(turn limit: {TURN_LIMIT})*")
+    st.write("This is what turns the Cap Gap number into something you're actually trying to achieve, not just watch move. Pick one primary objective and up to three secondary objectives.")
+    pri_keys = list(PRIMARY_OBJECTIVES.keys())
+    default_pri = state.get("primary_objective") if state.get("primary_objective") in pri_keys else pri_keys[0]
+    primary_objective = st.radio("Primary Objective", options=pri_keys,
+                                  format_func=lambda k: PRIMARY_OBJECTIVES[k]["label"],
+                                  index=pri_keys.index(default_pri))
+    st.caption(PRIMARY_OBJECTIVES[primary_objective]["description"])
+    sec_keys = list(SECONDARY_OBJECTIVES.keys())
+    secondary_objectives = st.multiselect("Secondary Objectives (pick up to 3)", options=sec_keys,
+                                           format_func=lambda k: SECONDARY_OBJECTIVES[k]["label"],
+                                           default=state.get("secondary_objectives", []) or sec_keys,
+                                           max_selections=3)
+
+    st.markdown("---")
+    st.markdown("**Step 01 — Scenario Identity**")
+    st.write("Set once, visible to every participant on refresh. Editable in both Decision-Maker and Decision-Support mode.")
+    name = st.text_input("Scenario Name", value=state.get("scenario_name", ""))
+    desc = st.text_area("Scenario Description", value=state.get("scenario_desc", ""))
+    doctrine = st.selectbox("Active Adversary Doctrine", options=list(DOCTRINE_LABELS.keys()),
+                             format_func=lambda k: DOCTRINE_LABELS[k],
+                             index=list(DOCTRINE_LABELS.keys()).index(state.get("doctrine", "rus")))
+
+    st.markdown("---")
+    st.markdown("**Step 02 — Adversarial Vector**")
+    st.write("Click a card below to select the primary adversarial action this scenario centers on.")
+    vec_keys = list(ADVERSARIAL_VECTORS.keys())
+    if "selected_vector_choice" not in st.session_state:
+        st.session_state["selected_vector_choice"] = state.get("adversarial_vector") if state.get("adversarial_vector") in vec_keys else vec_keys[0]
+    with st.container(key="vector_tile_grid"):
+        vcols = st.columns(3)
+        for i, vk in enumerate(vec_keys):
+            v = ADVERSARIAL_VECTORS[vk]
+            is_sel = st.session_state["selected_vector_choice"] == vk
+            with vcols[i % 3]:
+                if st.button(f"{v['icon']}\n{v['label']}\n{v['sub']}", key=f"vecbtn_{vk}",
+                             type="primary" if is_sel else "secondary", use_container_width=True, help=v["help"]):
+                    st.session_state["selected_vector_choice"] = vk
+                    st.rerun()
+    selected_vector = st.session_state["selected_vector_choice"]
+    st.caption(f"Selected: **{ADVERSARIAL_VECTORS[selected_vector]['label']}** — {ADVERSARIAL_VECTORS[selected_vector]['help']}")
+
+    st.markdown("---")
+    st.markdown("**Step 03 — Intensity**")
+    int_keys = list(INTENSITY_LEVELS.keys())
+    selected_intensity = st.radio("Intensity level", options=int_keys,
+                                   format_func=lambda k: f"{INTENSITY_LEVELS[k]['label']} — {INTENSITY_LEVELS[k]['sub']}",
+                                   index=int_keys.index(state.get("intensity", "medium")), horizontal=True)
+    st.caption(INTENSITY_LEVELS[selected_intensity]["help"])
+
+    st.markdown("---")
+    st.markdown("**Step 04 — Actor Selection**")
+    acols = st.columns(2)
+    with acols[0]:
+        with st.container(key="blue_actor_box"):
+            blue_sel = st.multiselect("Blue Team actors", options=ALL_BLUE_ACTORS, default=state.get("blue_actors", ALL_BLUE_ACTORS[:4]))
+    with acols[1]:
+        with st.container(key="red_actor_box"):
+            red_sel = st.multiselect("Red Team actors", options=ALL_RED_ACTORS, default=state.get("red_actors", ["Russia"]))
+
+    st.markdown("---")
+    if state.get("scenario_active"):
+        st.success("✓ SCENARIO ACTIVE — all analytical panels are contextualised to this configuration.")
+    if st.button("🚀 Execute Players Move", type="primary"):
+        state = generate_scenario(name, desc, doctrine, selected_vector, selected_intensity, blue_sel, red_sel, primary_objective, secondary_objectives)
+        st.success("✓ SCENARIO ACTIVE. All analytical panels are live — the Concession Engine, Cognitive Warfare, Narrative Analysis, and NATO Cap Gap tracker are now contextualised to this configuration.")
+        st.info("🧭 **Next:** trigger your opening move in the Concession Engine tab, or click **End Turn** (top of page) to see the Agentic AI's first Red Team move.")
+        st.rerun()
+    st.caption("⚡ The Agentic AI Turn-by-Turn Move Log now lives at the bottom of every tab, above Session Controls — scroll down to see it.")
+
+with tab_actors:
+    st.markdown("<div class='ws-section-label'>Actor Readiness & Strategic Seam Analysis</div>", unsafe_allow_html=True)
+    st.markdown("<div class='ws-chip-row'><span class='ws-chip'>Alliance Baselines</span><span class='ws-chip'>Exposure & Vulnerability</span><span class='ws-chip'>Primary Strategic Seams</span><span class='ws-chip'>Panel Validation Invited</span></div>", unsafe_allow_html=True)
+    st.write("Arctic theatre baselines across governance capacity, institutional indicators, exposure, concession status, and each actor's primary strategic seam. This table grounds the NATO High North readiness picture and helps identify where policy or adversarial pressure is most likely to bite.")
+    st.dataframe(styled_actor_table(), use_container_width=True, hide_index=True, height=320)
+    st.download_button(
+        "⬇ Export Allied Actor Governance Baseline Report (CSV)",
+        data=pd.DataFrame(ACTOR_BASELINES).to_csv(index=False),
+        file_name="winterstorm2030_allied_actor_baseline.csv",
+        mime="text/csv",
+    )
+
+    st.divider()
+    st.markdown("<div class='ws-section-label'>Red Team — Adversarial Governance Vector Profiles</div>", unsafe_allow_html=True)
+    st.write("Russia and China scored 0-100 across all six Adversarial Vector categories from Scenario Setup, plus each actor's primary vector and grey-zone exploitation seam. Hand-authored to match each actor's doctrine (Russia narrative-first, China platform-first) used throughout this build — indicative, not a live intelligence assessment.")
+    st.dataframe(styled_red_actor_table(), use_container_width=True, hide_index=True, height=160)
+    st.download_button(
+        "⬇ Export Adversarial Governance Vector Profiles (CSV)",
+        data=pd.DataFrame(RED_ACTOR_BASELINES).to_csv(index=False),
+        file_name="winterstorm2030_red_actor_vectors.csv",
+        mime="text/csv",
+    )
+
+with tab_capgap:
+    st.markdown("<div class='ws-section-label'>Collective Capability-Gap Monitor</div>", unsafe_allow_html=True)
+    st.write(f"**Composite gap: {state['cap_gap']}% · Posture: {posture}** — calculated from five operational-governance domains, then adjusted by concession effects and adversarial narrative pressure. Lower scores indicate stronger collective resilience.")
+    render_domain_cards(state["domains"])
+    st.progress(state["cap_gap"] / 100, text=f"{state['cap_gap']}% capability gap")
+    domain_df = pd.DataFrame(state["domains"]).rename(columns={"name": "Capability Domain", "gap": "Gap %"})
+    st.dataframe(domain_df.style.bar(subset=["Gap %"], vmin=0, vmax=100), use_container_width=True, hide_index=True, height=245)
+
+    if is_dm:
+        st.caption("Domain-level adjustment is Decision-Support depth tooling. Switch to Decision-Support to see or change what's behind this number.")
+    else:
+        st.markdown("<div class='ws-callout-panel'><strong style='color:#edf7fa'>Capability management controls</strong> — adjust an individual domain to model Blue Team closure or Red Team widening pressure against the shared NATO capability picture.</div>", unsafe_allow_html=True)
+        dcols = st.columns(3)
+        domain_idx = dcols[0].selectbox("Domain", options=range(len(DOMAIN_NAMES)), format_func=lambda i: DOMAIN_NAMES[i],
+                                         help="Which of the five capability domains this adjustment applies to.")
+        adj_type = dcols[1].selectbox("Type", ["Blue — Close Gap", "Red — Widen Gap"],
+                                       help="Blue closes the gap (subtracts from that domain's %, improving resilience). Red widens it (adds to that domain's %, degrading resilience).")
+        DELTA_OPTIONS = {3: "Minor (±3)", 7: "Significant (±7)", 12: "Major (±12)", 18: "Critical (±18)"}
+        delta_val = dcols[2].selectbox("Delta (size of the change)", options=list(DELTA_OPTIONS.keys()), format_func=lambda d: DELTA_OPTIONS[d],
+                                        help="Delta is simply how many percentage points this one adjustment moves the selected domain — not a separate metric, just the magnitude dial for this action.")
+        st.caption(f"This will move **{DOMAIN_NAMES[domain_idx]}** by **{'+' if adj_type.startswith('Red') else '-'}{delta_val} points** "
+                   f"(currently {state['domains'][domain_idx]['gap']}% → {max(0,min(100,state['domains'][domain_idx]['gap'] + (delta_val if adj_type.startswith('Red') else -delta_val)))}% after applying), "
+                   f"which then feeds into the composite Cap Gap above.")
+        if st.button("Apply Domain Adjustment"):
+            is_red = adj_type.startswith("Red")
+            state = adjust_domain(domain_idx, delta_val, is_red, callsign)
+            st.success(f"{'Widened' if is_red else 'Closed'} {DOMAIN_NAMES[domain_idx]} — Composite now {state['cap_gap']}%")
+            st.rerun()
+
+    st.divider()
+    st.markdown("**Export to Orion Lab**")
+    st.caption("Downloads a JSON snapshot — timestamp, master Cap Gap, domain breakdown, doctrine/scenario state, Decision Velocity, gap-moving events, concession count, arbitration cases, and the Article 4 log — for an external Python analysis pipeline.")
+    st.download_button(
+        "⬇ Export to Orion Lab (JSON)",
+        data=build_orion_export(),
+        file_name=f"winterstorm2030_orion_export_turn{state['turn']}.json",
+        mime="application/json",
+    )
+
+with tab_dgt:
+    st.markdown("<div class='ws-section-label'>Dynamic Governance Tracking</div>", unsafe_allow_html=True)
+    st.write("Live-updating status view of the session's governance state — mirrors the HTML build's \"Live Tracking\" tab. "
+             "Bayesian/Kalman-style continuous tracking is the framing; the values themselves are computed directly from live session data, not fitted models.")
+
+    maybe_add_degradation_events()
+    state = load_state()
+    clock_str = format_clock(_clock_elapsed_seconds(state))
+
+    dcol1, dcol2 = st.columns(2)
+    with dcol1:
+        st.markdown("**Scenario Clock**")
+        st.markdown(f"<div style='font-family:Rajdhani,sans-serif;font-size:3rem;font-weight:700;color:#55e5de;'>{clock_str}</div>", unsafe_allow_html=True)
+        running = state.get("clock_running", False)
+        st.caption(f"{'🟢 RUNNING' if running else '⏸ STOPPED'} · Turn {state['turn']} · Every 30s while running logs a degradation event below.")
+        ccols = st.columns(3)
+        if ccols[0].button("▶ Run", disabled=running):
+            clock_start()
+            st.rerun()
+        if ccols[1].button("⏹ Stop", disabled=not running):
+            clock_stop()
+            st.rerun()
+        if ccols[2].button("↺ Reset"):
+            clock_reset()
+            st.rerun()
+        if running:
+            st.caption("Note: this clock only advances when the page reruns (a click, or Live Mode's auto-refresh) — there's no true background timer.")
+    with dcol2:
+        st.markdown("**Live Governance State**")
+        iic_composite = round(sum(a["iic"] for a in ACTOR_BASELINES) / len(ACTOR_BASELINES))
+        cd_composite = round(sum(a["cd"] for a in ACTOR_BASELINES) / len(ACTOR_BASELINES))
+        st.write(f"IIC — Nordic Composite: **{iic_composite}/100**")
+        st.progress(iic_composite / 100)
+        st.write(f"CD — Cognitive Domain: **{cd_composite}/100**")
+        st.progress(cd_composite / 100)
+        st.write(f"NATO Cap Gap: **{state['cap_gap']}%**")
+        st.progress(state["cap_gap"] / 100)
+
+    st.divider()
+    st.markdown("**Degradation Log**")
+    st.caption("Auto-generated every 30 seconds while the Scenario Clock is running — separate from the Players Shared Move Feed.")
+    degrad = load_degradation_log()
+    if not degrad:
+        st.info("No degradation events yet. Click Run above to start the clock.")
+    else:
+        st.dataframe(pd.DataFrame(degrad), use_container_width=True, hide_index=True)
+
+    st.divider()
+    st.markdown("<div class='ws-section-label'>Decision Velocity</div>", unsafe_allow_html=True)
+    st.write("Supports the 'WinterStorm2030 helps NATO act faster' positioning with a real number instead of an assertion — both derived from actual timestamps in the shared log, not simulated.")
+    dv = compute_decision_velocity()
+    vcol1, vcol2, vcol3 = st.columns(3)
+    vcol1.metric("Avg. response time to Red Team moves", format_duration(dv["avg_response_seconds"]),
+                 help="Average wall-clock time between an Agentic AI move landing and the next human-initiated action in the log.")
+    vcol2.metric("Avg. time between any two actions", format_duration(dv["avg_tempo_seconds"]),
+                 help="Overall session tempo — average gap between any two consecutive logged actions, human or AI.")
+    vcol3.metric("Responses measured", dv["n_responses"], help=f"Out of {dv['n_actions']} total logged actions this session.")
+    if dv["n_responses"] < 2:
+        st.caption("Needs a few more Red Team moves and human responses this session before these numbers are meaningful — they'll firm up as you play.")
+
+    st.divider()
+    st.markdown("**Cap-Gap-Moving Events**")
+    st.caption("Same underlying data as the Players Shared Move Feed, filtered to actions that moved the Cap Gap.")
+    log_df = load_log()
+    if not log_df.empty and "cap_gap_delta" in log_df.columns:
+        moved = log_df[log_df["cap_gap_delta"] != 0]
+        if moved.empty:
+            st.info("No Cap-Gap-moving events yet.")
+        else:
+            st.dataframe(moved, use_container_width=True, hide_index=True)
+    else:
+        st.info("No events logged yet.")
+
+with tab_osint:
+    st.markdown("<div class='ws-section-label'>Open-Source Event Ingestion & Calibration</div>", unsafe_allow_html=True)
+    st.write("Real event data from the GDELT Project — free, unclassified, no API key, no generative AI. A direct substitute for the Anthropic API where that can't be cleared.")
+    ocols = st.columns(3)
+    theatre = ocols[0].selectbox("Theatre", ["Arctic High North (live session)", "Strait of Hormuz (calibration baseline)"])
+    is_hormuz = theatre.startswith("Strait")
+    default_query = "Strait of Hormuz Iran IRGC tanker seizure" if is_hormuz else "Arctic Svalbard Greenland NATO Russia"
+    timespan = ocols[1].selectbox("Window", ["1d", "3d", "7d", "30d"], index=2, format_func=lambda t: {"1d": "Last 24 hours", "3d": "Last 3 days", "7d": "Last 7 days", "30d": "Last 30 days"}[t])
+    query = st.text_input("Search Terms", value=default_query)
+
+    if is_hormuz:
+        st.info("Hormuz events feed a standalone Calibration Log, not the live Arctic Cap Gap — data-rich theatre used to sanity-check the scoring model, kept separate so it can't quietly contaminate the Arctic session.")
+    else:
+        acols = st.columns(2)
+        tag_actor = acols[0].selectbox("Actor (for Concession tagging)", ["Norway", "Denmark/Greenland", "Finland", "Iceland", "Canada", "United States", "Russia (Red)", "China (Red)"], index=6)
+        tag_type = acols[1].selectbox("Concession Type", ["Access", "Resource", "Narrative-Legal"], index=2)
+
+    if st.button("Pull Feed"):
+        articles, was_live = fetch_osint(query, timespan)
+        st.session_state["osint_articles"] = articles
+        st.session_state["osint_live"] = was_live
+        st.session_state["osint_hormuz"] = is_hormuz
+
+    if "osint_articles" in st.session_state:
+        status = "Live GDELT pull." if st.session_state.get("osint_live") else "GDELT pull unavailable — showing cached sample events so the workflow is still testable."
+        st.caption(status)
+        for i, a in enumerate(st.session_state["osint_articles"]):
+            with st.container(border=True):
+                tone = a.get("tone")
+                tone_label = "" if tone is None else (" 🔴 negative" if tone < -2 else " 🟢 positive" if tone > 2 else " ⚪ neutral")
+                st.markdown(f"**{a['title']}**{tone_label}  \n*{a.get('domain','')} — {str(a.get('seendate',''))[:8]}*")
+                if a.get("url"):
+                    st.caption(a["url"])
+                if st.session_state.get("osint_hormuz"):
+                    violation = st.selectbox("Grey-zone violation type", VIOLATION_TYPES, key=f"viol_{i}")
+                    if st.button("→ Calibration Log", key=f"calib_{i}"):
+                        append_calib(violation, a["title"], a.get("domain", ""), a.get("url", ""))
+                        st.success("Tagged into the Hormuz Calibration Log.")
+                        st.rerun()
+                else:
+                    bcols = st.columns(2)
+                    if bcols[0].button("→ Concession", key=f"conc_{i}"):
+                        is_red = "Red" in tag_actor
+                        state = trigger_concession(tag_actor, tag_type, f"[OSINT: {a.get('domain','')}] {a['title']}", callsign, is_red, source="REAL")
+                        st.success(f"Tagged as a real event — Cap Gap now {state['cap_gap']}%")
+                        st.rerun()
+                    if bcols[1].button("→ Article 4 Log", key=f"art4_{i}"):
+                        append_article4(state["turn"], a.get("domain", ""), "REAL", a["title"], a.get("url", ""))
+                        st.success("Tagged into the Article 4 Stress Test Log.")
+                        st.rerun()
+
+    st.divider()
+    st.markdown(f"**Article 4 Stress Test Log**")
+    st.warning("**KNOWN GAP** — A written legal rubric for what counts as \"below Article 4\" — ideally reviewed by outside eyes, not just this tool's tagging judgment — is still open, and is still the most important gap before WinterStorm2030's output can be called sound empirical evidence rather than illustrative analysis.")
+    a4_df = load_article4_log()
+    if a4_df.empty:
+        st.info("No Article 4 events tagged yet.")
+    else:
+        st.dataframe(a4_df, use_container_width=True, hide_index=True)
+
+    st.markdown(f"**Strait of Hormuz — Calibration Baseline**")
+    st.caption("Standalone, non-scoring log — does not affect the live Arctic Cap Gap.")
+    calib_df = load_calib_log()
+    if calib_df.empty:
+        st.info("No Hormuz calibration events tagged yet.")
+    else:
+        st.dataframe(calib_df, use_container_width=True, hide_index=True)
+
+with tab_concession:
+    st.markdown("<div class='ws-section-label'>Concession Engine</div>", unsafe_allow_html=True)
+    st.write("Model how access, resource, and narrative-legal concessions shift collective resilience. Every action is immediately written to the shared move log and reflected in the NATO capability picture.")
+    st.markdown("<div class='ws-feature-grid' style='grid-template-columns:repeat(3,minmax(0,1fr));margin-top:.2rem'><div class='ws-feature'><strong>Access</strong>Transit, basing, corridor, or inspection access concessions.</div><div class='ws-feature'><strong>Resource</strong>Material, financing, extraction, or infrastructure concessions.</div><div class='ws-feature'><strong>Narrative-Legal</strong>Recognition, sovereignty framing, legal position, or messaging concessions.</div></div>", unsafe_allow_html=True)
+    actor = st.selectbox("Triggering Actor", ["Norway", "Denmark/Greenland", "Finland", "Iceland", "Canada",
+                                               "United States", "Russia (Red)", "China (Red)"])
+    ctype = st.selectbox("Concession Type", ["Access", "Resource", "Narrative-Legal"])
+    desc = st.text_area("Description")
+    if st.button("Trigger Concession"):
+        is_red = "Red" in actor
+        state = trigger_concession(actor, ctype, desc or "No description provided", callsign, is_red)
+        st.success(f"Logged — Cap Gap now {state['cap_gap']}%")
+        if actor == "Denmark/Greenland" and ctype == "Access":
+            st.session_state["deadlock_flag"] = True
+        st.rerun()
+
+    st.divider()
+    st.markdown("<div class='ws-section-label'>Per-Actor Threshold Status</div>", unsafe_allow_html=True)
+    st.caption("Live view, separate from the static Actor Analysis baseline table — escalates when an actor is repeatedly the subject of concessions this session.")
+    threshold_rows = compute_actor_thresholds()
+    tdf = pd.DataFrame(threshold_rows)
+    st.dataframe(
+        tdf.style.map(
+            lambda v: "color:#ff808d;font-weight:700" if v in {"CRITICAL", "VULNERABLE"}
+            else ("color:#ffd279;font-weight:700" if v == "WATCH" else "color:#8ce8b1;font-weight:700"),
+            subset=["Baseline", "Live Status"]
+        ),
+        use_container_width=True, hide_index=True
+    )
+
+    if st.session_state.get("deadlock_flag"):
+        st.warning("**Deadlock Protocol** — Denmark/Greenland Access concession detected with the US adversarial flag active. "
+                   "Open the Contested Table to resolve this through trades rather than letting it sit unresolved.")
+        dcols = st.columns([2, 1])
+        deadlock_artifact = dcols[0].selectbox("Dispute to open", options=list(DISPUTED_ARTIFACTS.keys()),
+                                                format_func=lambda k: DISPUTED_ARTIFACTS[k]["label"],
+                                                index=list(DISPUTED_ARTIFACTS.keys()).index("minerals"), key="deadlock_artifact")
+        if dcols[1].button("Open Contested Table"):
+            open_contested_table(deadlock_artifact, callsign)
+            st.session_state["deadlock_flag"] = False
+            st.rerun()
+        if st.button("Dismiss"):
+            st.session_state["deadlock_flag"] = False
+            st.rerun()
+
+    st.divider()
+    st.markdown("<div class='ws-section-label'>Contested Negotiation Table</div>", unsafe_allow_html=True)
+    st.caption("A separate resolution path from the Arbitration Track — one active dispute at a time, resolved by trading concession types across all six actors rather than a procedural ladder.")
+
+    ct = load_contested_table()
+    if ct["status"] != "OPEN":
+        ocols = st.columns([2, 1])
+        open_artifact = ocols[0].selectbox("Disputed artifact", options=list(DISPUTED_ARTIFACTS.keys()),
+                                            format_func=lambda k: DISPUTED_ARTIFACTS[k]["label"], key="manual_artifact")
+        if ocols[1].button("Open Negotiation Table"):
+            open_contested_table(open_artifact, callsign)
+            st.rerun()
+    else:
+        st.markdown(f"**Open dispute:** {DISPUTED_ARTIFACTS[ct['artifact']]['label']}  \n*Opened by {ct['opened_by']}*")
+        st.markdown("**Concession Trade Declaration** — assign a trade type per actor (or leave unset):")
+        trades = ct.get("trades", {})
+        for a in TRADE_ACTORS:
+            tcols = st.columns([1, 2])
+            tcols[0].markdown(f"**{a}**")
+            current = trades.get(a, "— none —")
+            options = ["— none —"] + TRADE_TYPES
+            choice = tcols[1].selectbox(f"trade_{a}", options=options, index=options.index(current) if current in options else 0,
+                                         key=f"trade_select_{a}", label_visibility="collapsed")
+            if choice != current:
+                set_trade(a, None if choice == "— none —" else choice)
+                st.rerun()
+
+        st.markdown("---")
+        bcols = st.columns(2)
+        if bcols[0].button("⚡ Run Escalation"):
+            run_table_escalation(callsign)
+            st.rerun()
+        if bcols[1].button("✅ Log Resolution & Close Table"):
+            log_table_resolution(callsign)
+            st.success("Resolution logged — table closed.")
+            st.rerun()
+
+        if ct.get("escalation_run"):
+            st.markdown(
+                f"<div class='ws-callout-panel' style='border-left-color:var(--red);'><strong style='color:var(--red);'>Agentic AI Assessment — Red Team Response</strong><br>{html.escape(ct['escalation_text'])}</div>",
+                unsafe_allow_html=True)
+
+if not is_dm:
+    with tab_cogwar:
+        st.markdown("<div class='ws-section-label'>Cognitive Warfare Assessment</div>", unsafe_allow_html=True)
+        st.markdown("<div class='ws-chip-row'><span class='ws-chip'>Narrative Pressure</span><span class='ws-chip'>Doctrine Inference</span><span class='ws-chip'>No Live LLM Call</span><span class='ws-chip'>Blue Team Response Prompting</span></div>", unsafe_allow_html=True)
+        st.write("Doctrine-based assessment — no live LLM call, consistent with the security constraint on this deployment. Running an analysis sets the session's active adversary doctrine and advances the turn.")
+        cw_doctrine = st.selectbox("Doctrine to assess under", options=list(DOCTRINE_LABELS.keys()),
+                                    format_func=lambda k: DOCTRINE_LABELS[k], key="cw_doctrine")
+        narrative_text = st.text_area("Narrative or activity to assess", key="cw_narrative")
+        if st.button("Run Cognitive Warfare Analysis"):
+            state, assessment = run_cogwar_analysis(cw_doctrine, narrative_text or "No narrative provided", callsign)
+            mcols = st.columns(4)
+            mcols[0].metric("Intent", f"{assessment['intent']}/100")
+            mcols[1].metric("Autonomy", f"{assessment['autonomy']}/100")
+            mcols[2].metric("Interaction", f"{assessment['interaction']}/100")
+            mcols[3].metric("Governance Pressure", f"{assessment['governance']}/100")
+            st.info(f"**IAIG Assessment:** {assessment['analysis']}")
+            st.success(f"**Blue Team Response:** {assessment['blue_response']}")
+            st.caption(f"This counts as your move for Turn {state['turn']} — Cap Gap now {state['cap_gap']}%. Turn itself only advances on End Turn.")
+
+    with tab_narrative:
+        st.markdown("<div class='ws-section-label'>IAIG Narrative Analysis Engine</div>", unsafe_allow_html=True)
+        st.markdown("<div class='ws-chip-row'><span class='ws-chip'>HIGH / MEDIUM / LOW Output</span><span class='ws-chip'>Doctrine-Independent</span><span class='ws-chip'>No Live LLM Call</span><span class='ws-chip'>Foresight Recommendation</span></div>", unsafe_allow_html=True)
+        st.write("Distinct from Cognitive Warfare's numeric doctrine scoring — this engine reads a narrative on its own terms and returns categorical "
+                 "Intent/Autonomy/Interaction/Governance labels plus a foresight recommendation. Rules-based (no live LLM call), same security posture as the rest of this deployment.")
+        narr_input = st.text_area("Narrative to analyze", key="narr_input", placeholder="Paste or describe the narrative/activity...")
+        if st.button("Run Narrative Analysis"):
+            if not narr_input.strip():
+                st.error("Enter a narrative first.")
+            else:
+                state, assessment = run_narrative_analysis(narr_input, callsign)
+                ncols = st.columns(4)
+                label_color = {"HIGH": "var(--red)", "MEDIUM": "var(--amber)", "LOW": "var(--green)"}
+                for col, key, label in zip(ncols, ["intent", "autonomy", "interaction", "governance"],
+                                            ["Intent", "Autonomy", "Interaction", "Governance"]):
+                    col.markdown(f"<div class='ws-mini-card'><small>{label}</small><strong style='color:{label_color.get(assessment[key],'var(--ice)')}'>{assessment[key]}</strong></div>", unsafe_allow_html=True)
+                st.info(f"**Analysis:** {assessment['analysis']}")
+                st.success(f"**Foresight:** {assessment['foresight']}")
+                st.caption(f"Cap Gap now {state['cap_gap']}% — narrative pressure modifier updated, session turn unchanged (unlike Cognitive Warfare, this does not advance the turn).")
+
+    with tab_arbitration:
+        st.markdown("<div class='ws-section-label'>Arbitration & Strategic Continuity Track</div>", unsafe_allow_html=True)
+        st.markdown("<div class='ws-chip-row'><span class='ws-chip'>Notification</span><span class='ws-chip'>Joint Verification</span><span class='ws-chip'>Interim Continuity</span><span class='ws-chip'>Conciliation</span><span class='ws-chip'>Binding Arbitration</span></div>", unsafe_allow_html=True)
+        st.write("A standing procedural escalation ladder adapted from Boundary Waters, Columbia River, and Canterbury-type mechanisms — designed for the Arctic High North as a continuity-preserving dispute architecture rather than a one-time trigger.")
+        with st.expander("Open a new case"):
+            violation = st.selectbox("Grey-Zone Violation Type", VIOLATION_TYPES)
+            asset = st.selectbox("Strategic Asset", ASSETS)
+            if st.button("Open Arbitration Case"):
+                open_arbitration(violation, asset, callsign)
+                st.success("Case opened.")
+                st.rerun()
+
+        arb_df = load_arbitration()
+        open_cases = arb_df[arb_df["status"] == "OPEN"] if not arb_df.empty else arb_df
+        if open_cases.empty:
+            st.info("No open arbitration cases.")
+        else:
+            for _, row in open_cases.iterrows():
+                with st.container(border=True):
+                    stage_num = int(row["stage"])
+                    st.markdown(f"**{row['violation']}** vs **{row['asset']}** — Stage {stage_num}: *{ARB_STAGES[stage_num-1]}*  \n"
+                                f"Opened by {row['opened_by']} at {row['opened_at']}")
+                    cols = st.columns(2)
+                    if stage_num < 5:
+                        if cols[0].button("Advance to Next Stage", key=f"adv_{row['id']}"):
+                            advance_arbitration(row)
+                            st.rerun()
+                    else:
+                        if cols[0].button("⚖ Issue Binding Ruling", key=f"rule_{row['id']}"):
+                            issue_ruling(row, callsign)
+                            st.success("Ruling issued and logged.")
+                            st.rerun()
+
+    with tab_govlab:
+        st.markdown("<div class='ws-section-label'>Governance Lab — Document Scoring Workspace</div>", unsafe_allow_html=True)
+        st.markdown("<div class='ws-callout-panel'><strong style='color:#edf7fa'>Reference workspace</strong> — upload or paste a treaty, policy, or legal agreement for indicative assessment against NATO doctrine, live current events, and this session's evidence.</div>", unsafe_allow_html=True)
+        st.write("Upload or paste a treaty, policy, or legal agreement (e.g. the 1949 North Atlantic Treaty) for assessment against NATO doctrine, a live OSINT pull, and this session's own generated evidence. Scoring is rules-based lexical overlap plus templated findings — labeled indicative, not a legal or AI judgment.")
+        st.warning("**SCOPE** — This is heuristic keyword/overlap scoring (an E-AGPO-HT-style indicative score) with templated gap findings, not a generative-AI legal analysis "
+                   "or a substitute for expert review. No document text is sent anywhere — scoring runs locally against the reference tables below, plus a live GDELT pull if you provide search terms.")
+        with st.expander("What does the Fit Score actually measure?"):
+            st.markdown(
+                "**Fit Score is a coverage/overlap intensity number, not a legal-strength judgment.** It's built from how many "
+                "Articles, violation categories, precedent treaties, and live events your document's *text* overlaps with — "
+                "capped at 100. A high score means your document touches a lot of ground this instrument tracks; it does **not** "
+                "mean the treaty language is strong, or that a real gap exists.\n\n"
+                "**For the actual strong/weak assessment, read the Gap Findings below the score, not the number.** Each matched "
+                "Article now carries a **[STRONG / MODERATE / WEAK / PROCEDURAL]** tag — a fixed, hand-authored judgment about "
+                "that Article's own language (e.g. Article 4 is tagged WEAK because 'whenever...is threatened' sets no defined "
+                "threshold or timeline), plus whichever live events corroborate it right now, if any were pulled."
+            )
+
+        upload_mode = st.radio("Input method", ["Paste text", "Upload file (.txt, .pdf, .docx)"], horizontal=True, key="govlab_input_mode")
+        doc_title = st.text_input("Document title", placeholder="e.g. North Atlantic Treaty (1949)")
+        doc_text = ""
+        if upload_mode == "Paste text":
+            doc_text = st.text_area("Paste document text", height=200, key="govlab_paste")
+        else:
+            uploaded = st.file_uploader("Upload a .txt, .pdf, or .docx file", type=["txt", "pdf", "docx"])
+            if uploaded is not None:
+                doc_text, err = extract_text_from_upload(uploaded)
+                if err:
+                    st.error(err)
+                else:
+                    st.caption(f"Loaded {len(doc_text)} characters from {uploaded.name}.")
+
+        st.markdown("**Live event context** — pulls a fresh OSINT query at scoring time and cross-references it against the document's Article matches below.")
+        gcols = st.columns([2, 1])
+        live_query = gcols[0].text_input("Search terms", placeholder="e.g. Iran Israel United States", key="govlab_live_query")
+        live_timespan = gcols[1].selectbox("Window", ["1d", "3d", "7d", "30d"], index=2, key="govlab_live_span",
+                                            format_func=lambda t: {"1d": "Last 24h", "3d": "Last 3 days", "7d": "Last 7 days", "30d": "Last 30 days"}[t])
+
+        if st.button("Score Document"):
+            if not doc_text.strip():
+                st.error("Provide document text first — paste it in or upload a .txt file.")
+            else:
+                result = score_document(doc_text, doc_title or "Untitled document", callsign, live_query, live_timespan)
+                st.success(f"Scored and logged — Governance Fit Score: {result['fit_score']}/100 · {result['live_event_count']} live event(s) factored in")
+                st.rerun()
+
+        st.divider()
+        st.markdown("**Scored Documents**")
+        docs = load_govlab_docs()
+        if not docs:
+            st.info("No documents scored yet.")
+        else:
+            for d in docs:
+                with st.container(border=True):
+                    st.markdown(f"**{d['title']}** — Fit Score: **{d['fit_score']}/100**  \n*Scored by {d['uploaded_by']} at {d['ts']}*")
+                    st.caption(f"Excerpt: {d['excerpt']}…")
+                    mcols = st.columns(4)
+                    mcols[0].metric("Treaty Article Matches", len(d["article_matches"]))
+                    mcols[1].metric("Violation Categories", len(d["covered_violations"]))
+                    mcols[2].metric("Session Evidence Overlap", d["session_hits"])
+                    mcols[3].metric("Live Events Pulled", d.get("live_event_count", 0))
+                    if d["covered_violations"]:
+                        st.caption("Grey-zone categories referenced: " + ", ".join(d["covered_violations"]))
+                    if d.get("precedent_matches"):
+                        st.caption("Precedent library alignment: " + ", ".join(f"{p['treaty']} ({p['hits']})" for p in d["precedent_matches"]))
+
+                    if d.get("gap_findings"):
+                        st.markdown("**Gap Findings**")
+                        for f in d["gap_findings"]:
+                            st.markdown(f"- {f}")
+                    if d.get("recommendations"):
+                        st.markdown("**Recommendations**")
+                        for r in d["recommendations"]:
+                            st.markdown(f"- {r}")
+
+        st.divider()
+        st.markdown("<div class='ws-section-label'>Reference Library</div>", unsafe_allow_html=True)
+        st.caption("Static reference material the scoring above checks documents against — not live game state.")
+        with st.expander("North Atlantic Treaty (signed in Washington, D.C., April 4, 1949) — all 14 Articles"):
+            st.caption("Commonly referred to by the city where it was signed — the same document that contains Articles 4 and 5, not a separate treaty.")
+            st.dataframe(pd.DataFrame(WASHINGTON_TREATY_ARTICLES), use_container_width=True, hide_index=True)
+        with st.expander("Precedent Library — grey-zone infrastructure & boundary dispute analogues"):
+            for p in PRECEDENT_LIBRARY:
+                st.markdown(f"**{p['treaty']}**")
+                st.markdown(f"Infrastructure focus: {p['focus']}")
+                st.markdown(f"Why it's a useful analogue: {p['why']}")
+                st.markdown("---")
+
+        st.divider()
+        st.markdown("<div class='ws-section-label'>PMESII-PT Governance Layer</div>", unsafe_allow_html=True)
+        st.write("Shows where WinterStorm2030's governance/institutional analysis adds a layer on top of a standard PMESII-PT physical-environment baseline — for the Operational Environment workstream.")
+        pmesii_df = pd.DataFrame(PMESII_PT_MAPPING).rename(columns={"dimension": "PMESII-PT Dimension", "ws_module": "WinterStorm2030 Module", "note": "Governance Layer Contribution"})
+        st.dataframe(pmesii_df, use_container_width=True, hide_index=True, height=320)
+        st.caption("Note: Physical Environment is the one dimension this build does not yet quantify with a scored layer — see the note above.")
+        pmesii_note = generate_pmesii_pt_note()
+        with st.expander("Preview the generated note"):
+            st.markdown(pmesii_note)
+        st.download_button(
+            "⬇ Export PMESII-PT Governance Layer Note (Markdown)",
+            data=pmesii_note,
+            file_name=f"winterstorm2030_pmesii_pt_note_turn{load_state()['turn']}.md",
+            mime="text/markdown",
+        )
+
+        st.divider()
+        st.markdown("<div class='ws-section-label'>Capability Cards — GIUK Gap / NSR / Svalbard</div>", unsafe_allow_html=True)
+        st.write("Governance seam report for each of the three confirmed Red Team scenarios, mapped to the Capability → Own Action → Enemy Action → Countermeasures format.")
+        cc_state = load_state()
+        cc_key = st.selectbox("Scenario", options=list(CAPABILITY_CARD_SCENARIOS.keys()),
+                               format_func=lambda k: CAPABILITY_CARD_SCENARIOS[k]["label"], key="capcard_select")
+        cc_text = generate_capability_card(cc_key, cc_state.get("doctrine", "rus"))
+        st.markdown(cc_text)
+        st.download_button(
+            f"⬇ Export Capability Card — {CAPABILITY_CARD_SCENARIOS[cc_key]['label']} (Markdown)",
+            data=cc_text,
+            file_name=f"winterstorm2030_capability_card_{cc_key}.md",
+            mime="text/markdown",
+            key=f"cc_download_{cc_key}",
+        )
+
+st.divider()
+render_turn_status_banner(load_state())
+render_ai_move_panel()
+
+st.divider()
+st.markdown("<div class='ws-section-label'>Session Controls</div>", unsafe_allow_html=True)
+colA, colB, colC, colD = st.columns([1, 1, 1, 1])
+with colA:
+    if st.button("🔄 Refresh Shared State"):
+        st.rerun()
+with colB:
+    if st.button("⏩ End Turn (generate Red Team move)", disabled=state.get("game_over", False)):
+        state, move = end_turn(callsign)
+        st.success(f"Agentic AI Red Team move generated · Turn {state['turn']} · {move['tag']}: {move['title']}")
+        st.rerun()
+    if state.get("game_over"):
+        st.caption("Mission resolved — Restart below to play again.")
+with colC:
+    if st.session_state.get("confirm_restart"):
+        if st.button("⚠️ Confirm Restart", type="primary"):
+            restart_mission()
+            st.session_state["confirm_restart"] = False
+            st.success("Mission restarted at Turn 1 — same scenario configuration, fresh objectives, move log and arbitration cases cleared.")
+            st.rerun()
+        if st.button("Cancel"):
+            st.session_state["confirm_restart"] = False
+            st.rerun()
+    else:
+        if st.button("↺ Reset / Restart Mission"):
+            st.session_state["confirm_restart"] = True
+            st.rerun()
+        st.caption("Clears the move log and arbitration cases for everyone in this session — keeps your scenario config.")
+with colD:
+    if st.button("🚪 Log Out"):
+        st.session_state["authenticated"] = False
+        st.rerun()
